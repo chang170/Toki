@@ -16,7 +16,15 @@ var PeerManager = {
         this.myName = displayName;
 
         this.peer = new Peer(peerId, {
-            debug: 0
+            debug: 0,
+            config: {
+                iceServers: [
+                    { urls: 'stun:stun.l.google.com:19302' },
+                    { urls: 'stun:stun1.l.google.com:19302' },
+                    { urls: 'turn:openrelay.metered.ca:80', username: 'openrelayproject', credential: 'openrelayproject' },
+                    { urls: 'turn:openrelay.metered.ca:443', username: 'openrelayproject', credential: 'openrelayproject' }
+                ]
+            }
         });
 
         this.peer.on('open', function(id) {
@@ -24,6 +32,7 @@ var PeerManager = {
         });
 
         this.peer.on('connection', function(conn) {
+            console.log('Incoming connection from:', conn.peer);
             self.handleIncoming(conn);
         });
 
@@ -53,9 +62,11 @@ var PeerManager = {
     connectToPeer: function(remotePeerId, roomCode) {
         var self = this;
         if (remotePeerId === this.myPeerId) return;
+        console.log('Attempting to connect to:', remotePeerId);
 
         var conn = this.peer.connect(remotePeerId, { reliable: true });
         conn.on('open', function() {
+            console.log('Connection opened to:', remotePeerId);
             // Send join message
             conn.send({
                 type: 'join',
@@ -80,7 +91,7 @@ var PeerManager = {
         });
 
         conn.on('error', function(err) {
-            console.error('Connection error:', err);
+            console.error('Connection error to', remotePeerId, ':', err);
         });
     },
 
