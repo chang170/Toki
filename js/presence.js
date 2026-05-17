@@ -1,0 +1,92 @@
+/**
+ * Firebase Realtime Database - User Presence
+ * Only used for "who's online" - no messages stored on server
+ */
+var Presence = {
+    dbUrl: 'https://toki-25ff3-default-rtdb.firebaseio.com',
+    myKey: null,
+    onUsersChanged: null,
+    pollInterval: null,
+
+    // Register as online
+    goOnline: function(peerId, username) {
+        var self = this;
+        this.myKey = peerId.replace(/[.#$[\]]/g, '_');
+        var data = JSON.stringify({
+            peerId: peerId,
+            username: username,
+            lastSeen: Date.now()
+        });
+
+        // Set presence
+        this.put(this.myKey, data);
+
+        // Poll for users every 5 seconds
+        this.pollInterval = setInterval(function() {
+            // Update my timestamp
+            self.put(self.myKey, JSON.stringify({
+                peerId: peerId,
+                username: username,
+                lastSeen: Date.now()
+            }));
+            // Fetch all users
+            self.fetchUsers();
+        }, 5000);
+
+        // Initial fetch
+        this.fetchUsers();
+    },
+
+    // Go offline
+    goOffline: function() {
+        if (this.myKey) {
+            this.delete(this.myKey);
+        }
+        if (this.pollInterval) {
+            clearInterval(this.pollInterval);
+            this.pollInterval = null;
+        }
+    },
+
+    // Fetch all online users
+    fetchUsers: function() {
+        var self = this;
+        var xhr = new XMLHttpRequest();
+        xhr.open('GET', this.dbUrl + '/presence.json', true);
+        xhr.onload = function() {
+            if (xhr.status === 200) {
+                var data = JSON.parse(xhr.responseText);
+                var users = [];
+                var now = Date.now();
+                if (data) {
+                    for (var key in data) {
+                        var user = data[key];
+                        // Consider online if seen in last 15 seconds
+                        if (now - user.lastSeen < 15000) {
+                            users.push(user);
+                        } else {
+                            // Clean up stale entries
+                            self.delete(key);
+                        }
+                    }
+                }
+                if (self.onUsersChanged) self.onUsersChanged(users);
+            }
+        };
+        xhr.send();
+    },
+
+    // Firebase REST API helpers
+    put: function(key, jsonStr) {
+        var xhr = new XMLHttpRequest();
+        xhr.open('PUT', this.dbUrl + '/presence/' + key + '.json', true);
+        xhr.setRequestHeader('Content-Type', 'application/json');
+        xhr.send(jsonStr);
+    },
+
+    delete: function(key) {
+        var xhr = new XMLHttpRequest();
+        xhr.open('DELETE', this.dbUrl + '/presence/' + key + '.json', true);
+        xhr.send();
+    }
+};

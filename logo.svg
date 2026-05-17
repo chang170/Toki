@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <!-- Background circle -->
+  <circle cx="32" cy="32" r="30" fill="url(#grad)"/>
+  <!-- Chat bubble -->
+  <path d="M18 22h28a4 4 0 0 1 4 4v14a4 4 0 0 1-4 4H30l-8 6v-6h-4a4 4 0 0 1-4-4V26a4 4 0 0 1 4-4z" fill="#fff" opacity="0.95"/>
+  <!-- Dots -->
+  <circle cx="26" cy="33" r="2.5" fill="#667eea"/>
+  <circle cx="34" cy="33" r="2.5" fill="#667eea"/>
+  <circle cx="42" cy="33" r="2.5" fill="#764ba2"/>
+  <!-- Gradient -->
+  <defs>
+    <linearGradient id="grad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#667eea"/>
+      <stop offset="100%" style="stop-color:#764ba2"/>
+    </linearGradient>
+  </defs>
+</svg>
