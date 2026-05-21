@@ -1,6 +1,9 @@
 (function() {
     // App version - increment to force localStorage reset on all devices
-    var APP_VERSION = '2';
+    // App version - only increment for BREAKING changes that need localStorage reset
+    var APP_VERSION = '3';
+    // Build timestamp - changes every deploy, forces JS/CSS reload via index.html ?v= param
+    var BUILD = '1779330000';
     var storedVersion = localStorage.getItem('messenger_version');
     if (storedVersion !== APP_VERSION) {
         var keys = Object.keys(localStorage).filter(function(k) { return k.startsWith('messenger_'); });
