@@ -138,11 +138,12 @@
         var code = document.getElementById('joinRoomCode').value.trim();
         if (!code) { alert('Enter a group code.'); return; }
 
+        var joinName = document.getElementById('joinRoomName').value.trim();
         var creatorPeerId = CryptoUtil.extractPeerId(code);
 
         var chat = {
             roomCode: code,
-            name: 'Group ' + code.split('.')[0],
+            name: joinName || 'Group ' + code.split('.')[0],
             isGroup: true,
             joined: new Date().toISOString(),
             creatorPeerId: creatorPeerId
@@ -151,6 +152,8 @@
         Storage.addChat(chat);
         renderChatList();
         document.getElementById('newChatModal').hidden = true;
+        document.getElementById('joinRoomCode').value = '';
+        document.getElementById('joinRoomName').value = '';
         selectChat(code);
 
         // Connect to the creator
