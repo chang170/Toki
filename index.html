@@ -7,8 +7,7 @@
     <meta http-equiv="Pragma" content="no-cache">
     <meta http-equiv="Expires" content="0">
     <title>Toki</title>
-    <link rel="stylesheet" href="css/styles.css?v=9">
-</head>
+    <link rel="stylesheet" href="css/styles.css?v=10"></head>
 <body>
     <!-- Login/Signup Screen -->
     <div id="authScreen" class="screen active">
@@ -101,6 +100,24 @@
         <div class="modal-content">
             <h2>Settings</h2>
             <div class="settings-section">
+                <h3>Profile</h3>
+                <div class="profile-pic-section">
+                    <div class="profile-pic-preview" id="profilePicPreview"></div>
+                    <button id="uploadPicBtn" type="button">Upload Photo</button>
+                    <input type="file" id="profilePicInput" accept="image/*" hidden>
+                </div>
+                <div class="profile-fields">
+                    <label>First Name<input type="text" id="profileFirstName" placeholder="First name"></label>
+                    <label>Last Name<input type="text" id="profileLastName" placeholder="Last name"></label>
+                    <label>Nickname<input type="text" id="profileNickname" placeholder="Nickname (displayed to others)"></label>
+                    <label class="profile-toggle">
+                        <input type="checkbox" id="profileShowLastSeen" checked>
+                        Show "last seen" to others
+                    </label>
+                </div>
+                <button id="saveProfileBtn" type="button">Save Profile</button>
+            </div>
+            <div class="settings-section">
                 <h3>Theme</h3>
                 <div class="theme-options">
                     <button class="theme-btn" data-theme="default">🎨 Default</button>
@@ -123,10 +140,10 @@
     </div>
 
     <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
-    <script src="js/crypto.js?v=9"></script>
-    <script src="js/storage.js?v=9"></script>
-    <script src="js/presence.js?v=9"></script>
-    <script src="js/peer.js?v=9"></script>
-    <script src="js/app.js?v=9"></script>
+    <script src="js/crypto.js?v=10"></script>
+    <script src="js/storage.js?v=10"></script>
+    <script src="js/presence.js?v=10"></script>
+    <script src="js/peer.js?v=10"></script>
+    <script src="js/app.js?v=10"></script>
 </body>
 </html>
