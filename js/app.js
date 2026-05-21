@@ -265,7 +265,9 @@
             html += '<div class="' + avatarClass + '">' + initial + '</div>';
             html += '<div class="chat-item-info"><div class="chat-item-name">' + escapeHtml(chat.name) + '</div>';
             html += '<div class="chat-item-last">' + escapeHtml(lastText) + '</div></div>';
-            html += '<span class="chat-item-time">' + lastTime + '</span>';
+            var unread = unreadCounts[chat.roomCode] || 0;
+            var unreadBadge = unread > 0 ? '<span class="unread-badge">' + unread + '</span>' : '';
+            html += '<div class="chat-item-meta"><span class="chat-item-time">' + lastTime + '</span>' + unreadBadge + '</div>';
             html += '</div>';
         });
 
@@ -280,6 +282,24 @@
 
     function selectChat(roomCode) {
         currentRoom = roomCode;
+        // Clear unread for this chat
+        delete unreadCounts[roomCode];
+        updateTitleBadge();
+
+        // Send read receipts for unread messages in this chat
+        var msgs = Storage.getMessages(roomCode);
+        msgs.forEach(function(msg) {
+            if (msg.sender !== account.peerId && msg.msgId && !msg.readReceiptSent) {
+                PeerManager.sendMessage(roomCode, {
+                    type: 'receipt',
+                    receiptType: 'read',
+                    msgId: msg.msgId,
+                    roomCode: roomCode,
+                    sender: account.peerId
+                });
+            }
+        });
+
         var chats = Storage.getChats();
         var chat = chats.find(function(c) { return c.roomCode === roomCode; });
         if (!chat) return;
@@ -340,7 +360,17 @@
                 }
             }
             if (msg.text) html += '<div>' + escapeHtml(msg.text) + '</div>';
-            html += '<div class="msg-time">' + formatTime(msg.timestamp) + '</div>';
+            var checkMark = '';
+            if (isMine) {
+                if (msg.read) {
+                    checkMark = '<span class="msg-check read">✓✓</span>';
+                } else if (msg.delivered) {
+                    checkMark = '<span class="msg-check delivered">✓✓</span>';
+                } else {
+                    checkMark = '<span class="msg-check sent">✓</span>';
+                }
+            }
+            html += '<div class="msg-time">' + formatTime(msg.timestamp) + ' ' + checkMark + '</div>';
             html += '</div>';
         });
 
@@ -367,7 +397,10 @@
             sender: account.peerId,
             senderName: account.username,
             text: text,
-            timestamp: Date.now()
+            timestamp: Date.now(),
+            msgId: Date.now() + '-' + Math.random().toString(36).substr(2, 5),
+            delivered: false,
+            read: false
         };
 
         Storage.saveMessage(currentRoom, msg);
@@ -409,9 +442,23 @@
     });
 
     // Handle incoming messages
+    // Unread message tracking
+    var unreadCounts = {};
+
     function handleIncomingMessage(data) {
         if (data.type === 'message' && data.roomCode) {
             Storage.saveMessage(data.roomCode, data);
+
+            // Send delivery receipt
+            if (data.msgId && data.sender !== account.peerId) {
+                PeerManager.sendMessage(data.roomCode, {
+                    type: 'receipt',
+                    receiptType: 'delivered',
+                    msgId: data.msgId,
+                    roomCode: data.roomCode,
+                    sender: account.peerId
+                });
+            }
 
             // Auto-add chat if we don't have it
             var chats = Storage.getChats();
@@ -428,9 +475,55 @@
 
             if (currentRoom === data.roomCode) {
                 renderMessages(data.roomCode);
+                // Send read receipt since chat is open
+                if (data.msgId && data.sender !== account.peerId) {
+                    PeerManager.sendMessage(data.roomCode, {
+                        type: 'receipt',
+                        receiptType: 'read',
+                        msgId: data.msgId,
+                        roomCode: data.roomCode,
+                        sender: account.peerId
+                    });
+                }
+            } else {
+                // Mark as unread
+                unreadCounts[data.roomCode] = (unreadCounts[data.roomCode] || 0) + 1;
             }
+
+            // Update page title with total unread
+            updateTitleBadge();
             renderChatList();
+        } else if (data.type === 'receipt') {
+            // Update message status
+            var msgs = Storage.getMessages(data.roomCode);
+            var updated = false;
+            for (var i = 0; i < msgs.length; i++) {
+                if (msgs[i].msgId === data.msgId) {
+                    if (data.receiptType === 'delivered') {
+                        msgs[i].delivered = true;
+                    } else if (data.receiptType === 'read') {
+                        msgs[i].delivered = true;
+                        msgs[i].read = true;
+                    }
+                    updated = true;
+                    break;
+                }
+            }
+            if (updated) {
+                localStorage.setItem('messenger_msgs_' + data.roomCode, JSON.stringify(msgs));
+                if (currentRoom === data.roomCode) {
+                    renderMessages(data.roomCode);
+                }
+            }
         }
+    }
+
+    function updateTitleBadge() {
+        var total = 0;
+        for (var room in unreadCounts) {
+            total += unreadCounts[room];
+        }
+        document.title = total > 0 ? '(' + total + ') Toki' : 'Toki';
     }
 
     function handlePeerConnected(peerId, roomCode, name) {
