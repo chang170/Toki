@@ -614,6 +614,7 @@
 
     function stopLiveLocation() {
         liveLocationActive = false;
+        liveLocationMsgId = null;
         if (liveLocationInterval) {
             clearInterval(liveLocationInterval);
             liveLocationInterval = null;
@@ -641,12 +642,20 @@
         }
     }
 
+    var liveLocationMsgId = null;
+
     function sendLocationUpdate() {
         if (!currentRoom || !liveLocationActive) return;
         navigator.geolocation.getCurrentPosition(function(pos) {
             var lat = pos.coords.latitude;
             var lng = pos.coords.longitude;
             var mapUrl = 'https://www.google.com/maps?q=' + lat + ',' + lng;
+
+            // Use same msgId to update existing message
+            if (!liveLocationMsgId) {
+                liveLocationMsgId = 'live-' + Date.now() + '-' + Math.random().toString(36).substr(2, 5);
+            }
+
             var msg = {
                 type: 'message',
                 roomCode: currentRoom,
@@ -654,12 +663,29 @@
                 senderName: account.username,
                 text: '📍 Live location: ' + lat.toFixed(6) + ', ' + lng.toFixed(6) + '\n' + mapUrl,
                 location: { lat: lat, lng: lng, live: true },
-                msgId: Date.now() + '-' + Math.random().toString(36).substr(2, 5),
+                msgId: liveLocationMsgId,
+                isLiveLocationUpdate: true,
                 delivered: false,
                 read: false,
                 timestamp: Date.now()
             };
-            Storage.saveMessage(currentRoom, msg);
+
+            // Update existing message in storage instead of adding new one
+            var msgs = Storage.getMessages(currentRoom);
+            var existingIdx = -1;
+            for (var i = 0; i < msgs.length; i++) {
+                if (msgs[i].msgId === liveLocationMsgId) {
+                    existingIdx = i;
+                    break;
+                }
+            }
+            if (existingIdx >= 0) {
+                msgs[existingIdx] = msg;
+                localStorage.setItem('messenger_msgs_' + currentRoom, JSON.stringify(msgs));
+            } else {
+                Storage.saveMessage(currentRoom, msg);
+            }
+
             PeerManager.sendMessage(currentRoom, msg);
             renderMessages(currentRoom);
         }, function() {}, { enableHighAccuracy: true });
@@ -678,15 +704,33 @@
     function handleIncomingMessage(data) {
         if (data.type === 'message' && data.roomCode) {
             // Only process if it has content
-            if (!data.sender || (!data.text && !data.media)) return;
+            if (!data.sender || (!data.text && !data.media && !data.location)) return;
 
             // Deduplicate - skip if we already processed this message
-            if (data.msgId) {
+            if (data.msgId && !data.isLiveLocationUpdate) {
                 if (processedMsgIds[data.msgId]) return;
                 processedMsgIds[data.msgId] = true;
             }
 
-            Storage.saveMessage(data.roomCode, data);
+            // Live location update — replace existing message
+            if (data.isLiveLocationUpdate && data.msgId) {
+                var msgs = Storage.getMessages(data.roomCode);
+                var existingIdx = -1;
+                for (var i = 0; i < msgs.length; i++) {
+                    if (msgs[i].msgId === data.msgId) {
+                        existingIdx = i;
+                        break;
+                    }
+                }
+                if (existingIdx >= 0) {
+                    msgs[existingIdx] = data;
+                    localStorage.setItem('messenger_msgs_' + data.roomCode, JSON.stringify(msgs));
+                } else {
+                    Storage.saveMessage(data.roomCode, data);
+                }
+            } else {
+                Storage.saveMessage(data.roomCode, data);
+            }
 
             // Send delivery receipt
             if (data.msgId && data.sender !== account.peerId) {
