@@ -124,7 +124,7 @@ body {
 .messages { flex: 1; overflow-y: auto; padding: 1rem; display: flex; flex-direction: column; gap: 0.5rem; }
 .msg {
     max-width: 65%; padding: 0.8rem 1.1rem; border-radius: 8px;
-    font-size: 1.1rem; word-wrap: break-word; position: relative; font-weight: 600;
+    font-size: 1.1rem; word-wrap: break-word; position: relative; font-weight: 400;
 }
 .msg-sent { align-self: flex-end; background: #dcf8c6; border-bottom-right-radius: 2px; }
 .msg-received { align-self: flex-start; background: #fff; border-bottom-left-radius: 2px; }
@@ -287,3 +287,20 @@ body.theme-cartoon .online-header { background: #fff9c4; border: 2px solid #ff8f
 body.theme-cartoon .unread-badge { background: #ff6f00; border: 2px solid #e65100; }
 body.theme-cartoon .modal-content { border: 4px solid #ff8f00; border-radius: 20px; }
 body.theme-cartoon .sidebar-actions button { border: 2px solid #ff8f00; background: #fff9c4; }
+
+/* Message context menu */
+.msg-context-menu {
+    background: #fff; border-radius: 8px; box-shadow: 0 4px 20px rgba(0,0,0,0.2);
+    z-index: 200; overflow: hidden; min-width: 180px;
+}
+.ctx-btn {
+    display: block; width: 100%; padding: 0.75rem 1rem; border: none;
+    background: none; text-align: left; font-size: 0.9rem; cursor: pointer;
+    font-weight: 600;
+}
+.ctx-btn:hover { background: #f0f2f5; }
+.ctx-danger { color: #d63031; }
+.ctx-danger:hover { background: #ffeef0; }
+
+/* Deleted message */
+.msg-deleted { opacity: 0.6; font-style: italic; }
