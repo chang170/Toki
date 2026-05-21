@@ -189,3 +189,23 @@ body {
 .settings-info code { background: #f0f2f5; padding: 0.2rem 0.4rem; border-radius: 3px; font-size: 0.75rem; }
 .danger-btn { background: #d63031 !important; }
 .danger-btn:hover { background: #c0392b !important; }
+
+/* Mobile responsive */
+@media (max-width: 768px) {
+    .app-layout { flex-direction: column; }
+    .sidebar { width: 100%; height: auto; max-height: 35vh; border-right: none; border-bottom: 1px solid #e0e0e0; }
+    .chat-area { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+    .messages { flex: 1; min-height: 0; overflow-y: auto; }
+    .message-input {
+        position: sticky;
+        bottom: 0;
+        background: #fff;
+        padding: 0.5rem;
+        border-top: 2px solid #667eea;
+        z-index: 10;
+    }
+    .message-input input[type="text"] { font-size: 16px; }
+    #sendBtn { padding: 0.6rem 1rem; font-size: 0.9rem; }
+    .online-section { max-height: 80px; }
+    .chat-list { max-height: 120px; }
+}
