@@ -40,11 +40,8 @@ var Presence = {
         this.fetchUsers();
     },
 
-    // Go offline
+    // Go offline - stop updating but keep entry for "last seen"
     goOffline: function() {
-        if (this.myKey) {
-            this.delete(this.myKey);
-        }
         if (this.pollInterval) {
             clearInterval(this.pollInterval);
             this.pollInterval = null;
