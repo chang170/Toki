@@ -82,8 +82,14 @@
         document.getElementById('chatScreen').classList.add('active');
 
         // Set user info
-        document.getElementById('myName').textContent = account.username;
-        document.getElementById('myAvatar').textContent = account.username.charAt(0).toUpperCase();
+        var profile = JSON.parse(localStorage.getItem('toki_profile') || '{}');
+        var displayName = profile.nickname || profile.firstName || account.username;
+        document.getElementById('myName').textContent = displayName;
+        if (profile.picture) {
+            document.getElementById('myAvatar').innerHTML = '<img src="' + profile.picture + '" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">';
+        } else {
+            document.getElementById('myAvatar').textContent = displayName.charAt(0).toUpperCase();
+        }
 
         // Init peer connection
         PeerManager.init(account.peerId, account.username);
@@ -292,18 +298,36 @@
     function renderOnlineUsers(users) {
         var html = '';
         var count = 0;
+        // Sort: online first, then offline by last seen
+        users.sort(function(a, b) {
+            if (a.online && !b.online) return -1;
+            if (!a.online && b.online) return 1;
+            return b.lastSeen - a.lastSeen;
+        });
         users.forEach(function(user) {
             if (user.peerId === account.peerId) return; // Skip self
-            count++;
+            if (user.online) count++;
             var avatar = user.picture ? '<img src="' + user.picture + '" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">' : '';
-            html += '<div class="online-user" data-peer="' + escapeHtml(user.peerId) + '" data-name="' + escapeHtml(user.username) + '">' +
-                '<span class="online-dot"></span>' +
+            var dotClass = user.online ? 'online-dot' : 'online-dot offline-dot';
+            var lastSeenText = '';
+            if (!user.online && user.showLastSeen !== false) {
+                lastSeenText = '<span class="last-seen-text">' + formatLastSeen(user.lastSeen) + '</span>';
+            }
+            html += '<div class="online-user' + (user.online ? '' : ' offline') + '" data-peer="' + escapeHtml(user.peerId) + '" data-name="' + escapeHtml(user.username) + '">' +
+                '<span class="' + dotClass + '"></span>' +
                 (avatar ? '<span style="width:24px;height:24px;border-radius:50%;overflow:hidden;display:inline-block;">' + avatar + '</span>' : '') +
-                '<span class="online-user-name">' + escapeHtml(user.username) + '</span>' +
-                '<span class="online-user-chat">Chat</span></div>';
+                '<span class="online-user-name">' + escapeHtml(user.username) + lastSeenText + '</span>' +
+                (user.online ? '<span class="online-user-chat">Chat</span>' : '') + '</div>';
         });
         document.getElementById('onlineList').innerHTML = html || '<p style="padding:0.5rem 1rem;font-size:0.8rem;color:#b2bec3;">No one else online</p>';
         document.getElementById('onlineCount').textContent = count;
+
+        // Cache profile pictures for chat list
+        users.forEach(function(user) {
+            if (user.peerId !== account.peerId && user.picture) {
+                localStorage.setItem('toki_peerpic_' + user.peerId, user.picture);
+            }
+        });
 
         // Click to start direct chat
         document.querySelectorAll('.online-user').forEach(function(el) {
@@ -353,14 +377,18 @@
         chats.forEach(function(chat) {
             var msgs = Storage.getMessages(chat.roomCode);
             var lastMsg = msgs.length > 0 ? msgs[msgs.length - 1] : null;
-            var lastText = lastMsg ? (lastMsg.media ? '📎 Media' : lastMsg.text) : 'No messages yet';
+            var lastText = lastMsg ? (lastMsg.media ? '📎 Media' : (lastMsg.location ? '📍 Location' : lastMsg.text)) : 'No messages yet';
             var lastTime = lastMsg ? formatTime(lastMsg.timestamp) : '';
             var avatarClass = chat.isGroup ? 'chat-item-avatar group' : 'chat-item-avatar';
             var initial = chat.name.charAt(0).toUpperCase();
             var activeClass = currentRoom === chat.roomCode ? ' active' : '';
 
+            // Check if we have a cached profile pic for this peer
+            var peerPic = chat.directPeer ? localStorage.getItem('toki_peerpic_' + chat.directPeer) : '';
+            var avatarContent = peerPic ? '<img src="' + peerPic + '" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">' : initial;
+
             html += '<div class="chat-item' + activeClass + '" data-room="' + chat.roomCode + '">';
-            html += '<div class="' + avatarClass + '">' + initial + '</div>';
+            html += '<div class="' + avatarClass + '">' + avatarContent + '</div>';
             html += '<div class="chat-item-info"><div class="chat-item-name">' + escapeHtml(chat.name) + '</div>';
             html += '<div class="chat-item-last">' + escapeHtml(lastText) + '</div></div>';
             var unread = unreadCounts[chat.roomCode] || 0;
@@ -485,12 +513,16 @@
             if (!isMine) html += '<div class="msg-sender">' + escapeHtml(msg.senderName || 'Unknown') + '</div>';
             if (msg.location) {
                 var mapLink = 'https://www.google.com/maps?q=' + msg.location.lat + ',' + msg.location.lng;
-                var mapImg = 'https://staticmap.openstreetmap.de/staticmap.php?center=' + msg.location.lat + ',' + msg.location.lng + '&zoom=15&size=250x150&markers=' + msg.location.lat + ',' + msg.location.lng + ',red-pushpin';
+                var mapImg = 'https://maps.googleapis.com/maps/api/staticmap?center=' + msg.location.lat + ',' + msg.location.lng + '&zoom=15&size=250x150&markers=color:red%7C' + msg.location.lat + ',' + msg.location.lng + '&key=';
+                // Fallback to OpenStreetMap embed iframe
+                var mapEmbed = '<iframe src="https://www.openstreetmap.org/export/embed.html?bbox=' +
+                    (msg.location.lng - 0.005) + ',' + (msg.location.lat - 0.003) + ',' +
+                    (msg.location.lng + 0.005) + ',' + (msg.location.lat + 0.003) +
+                    '&layer=mapnik&marker=' + msg.location.lat + ',' + msg.location.lng +
+                    '" style="width:250px;height:150px;border:none;border-radius:6px;"></iframe>';
                 html += '<div class="msg-location">' +
-                    '<a href="' + mapLink + '" target="_blank">' +
-                    '<img src="' + mapImg + '" style="border-radius:6px;width:250px;height:150px;display:block;margin-bottom:0.3rem;">' +
-                    '</a>' +
-                    '<a href="' + mapLink + '" target="_blank" style="color:#667eea;text-decoration:none;font-size:0.85rem;">📍 ' + (msg.location.live ? 'Live location' : 'Open in Maps') + '</a></div>';
+                    '<a href="' + mapLink + '" target="_blank">' + mapEmbed + '</a>' +
+                    '<a href="' + mapLink + '" target="_blank" style="color:#667eea;text-decoration:none;font-size:0.85rem;display:block;margin-top:0.3rem;">📍 ' + (msg.location.live ? 'Live location' : 'Open in Maps') + '</a></div>';
             } else if (msg.media) {
                 if (msg.mediaType && msg.mediaType.startsWith('video')) {
                     html += '<div class="msg-media"><video src="' + msg.media + '" controls></video></div>';
@@ -645,26 +677,32 @@
             var selected = document.querySelectorAll('.invite-check:checked');
             if (selected.length === 0) { alert('Select at least one user.'); return; }
 
-            var delay = 0;
-            selected.forEach(function(cb) {
-                var peerId = cb.dataset.peer;
-                delay += 2000;
-                (function(pid, d) {
-                    // Connect to peer
-                    PeerManager.connectToPeer(pid, roomCode);
-                    // Send invite after connection has time to establish
-                    setTimeout(function() {
-                        PeerManager.sendMessage(roomCode, {
-                            type: 'invite',
-                            roomCode: roomCode,
-                            groupName: groupName,
-                            sender: account.peerId,
-                            senderName: account.username,
-                            invitedPeer: pid
-                        });
-                    }, d);
-                })(peerId, delay);
+            var peers = [];
+            selected.forEach(function(cb) { peers.push(cb.dataset.peer); });
+
+            // Connect to all selected peers first
+            peers.forEach(function(peerId) {
+                PeerManager.connectToPeer(peerId, 'invite-' + peerId);
             });
+
+            // Send invites after connections establish
+            setTimeout(function() {
+                peers.forEach(function(peerId) {
+                    var inviteData = {
+                        type: 'invite',
+                        roomCode: roomCode,
+                        groupName: groupName,
+                        sender: account.peerId,
+                        senderName: account.username,
+                        invitedPeer: peerId
+                    };
+                    // Send through the invite-specific connection
+                    var conns = PeerManager.connections['invite-' + peerId] || [];
+                    conns.forEach(function(conn) {
+                        if (conn.open) conn.send(inviteData);
+                    });
+                });
+            }, 3000);
 
             modal.remove();
             alert('Invite sent to ' + selected.length + ' user(s).');
@@ -1133,6 +1171,17 @@
     }
 
     // Utilities
+    function formatLastSeen(timestamp) {
+        var now = Date.now();
+        var diff = now - timestamp;
+        var mins = Math.floor(diff / 60000);
+        if (mins < 1) return 'just now';
+        if (mins < 60) return mins + 'm ago';
+        var hours = Math.floor(mins / 60);
+        if (hours < 24) return hours + 'h ago';
+        return Math.floor(hours / 24) + 'd ago';
+    }
+
     function formatTime(timestamp) {
         var d = new Date(timestamp);
         var now = new Date();
