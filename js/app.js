@@ -13,6 +13,7 @@
     var account = null;
     var unreadCounts = {};
     var processedMsgIds = {};
+    var replyingTo = null;
 
     // Check if already logged in
     account = Storage.getAccount();
@@ -584,6 +585,11 @@
             var cls = isMine ? 'msg msg-sent' : 'msg msg-received';
             html += '<div class="' + cls + '" data-msg-idx="' + idx + '">';
             if (!isMine) html += '<div class="msg-sender">' + escapeHtml(msg.senderName || 'Unknown') + '</div>';
+            if (msg.replyTo) {
+                html += '<div class="msg-reply-quote">' +
+                    '<span class="reply-name">' + escapeHtml(msg.replyTo.senderName || '') + '</span>' +
+                    '<span class="reply-text">' + escapeHtml(msg.replyTo.text || '📎 Media') + '</span></div>';
+            }
             if (msg.location) {
                 var mapLink = 'https://www.google.com/maps?q=' + msg.location.lat + ',' + msg.location.lng;
                 var mapImg = 'https://maps.googleapis.com/maps/api/staticmap?center=' + msg.location.lat + ',' + msg.location.lng + '&zoom=15&size=250x150&markers=color:red%7C' + msg.location.lat + ',' + msg.location.lng + '&key=';
@@ -644,6 +650,7 @@
         menu.id = 'msgDeleteMenu';
         menu.className = 'msg-context-menu';
         menu.innerHTML =
+            '<button class="ctx-btn" id="replyMsg">↩ Reply</button>' +
             '<button class="ctx-btn" id="deleteForMe">🗑 Delete for me</button>' +
             (msg.sender === account.peerId ? '<button class="ctx-btn ctx-danger" id="deleteForAll">🗑 Delete for everyone</button>' : '') +
             '<button class="ctx-btn" id="cancelDelete">Cancel</button>';
@@ -653,6 +660,17 @@
         menu.style.top = '50%';
         menu.style.transform = 'translate(-50%, -50%)';
         document.body.appendChild(menu);
+
+        document.getElementById('replyMsg').addEventListener('click', function() {
+            replyingTo = {
+                msgId: msg.msgId,
+                text: msg.text || (msg.media ? '📎 Media' : (msg.location ? '📍 Location' : '')),
+                senderName: msg.senderName || 'Unknown'
+            };
+            showReplyPreview();
+            document.getElementById('messageText').focus();
+            menu.remove();
+        });
 
         document.getElementById('deleteForMe').addEventListener('click', function() {
             deleteMessageForMe(msgIdx);
@@ -893,6 +911,13 @@
             read: false
         };
 
+        // Include reply reference if replying
+        if (replyingTo) {
+            msg.replyTo = replyingTo;
+            replyingTo = null;
+            hideReplyPreview();
+        }
+
         Storage.saveMessage(currentRoom, msg);
         PeerManager.sendMessage(currentRoom, msg);
         renderMessages(currentRoom);
@@ -900,7 +925,31 @@
         document.getElementById('messageText').value = '';
     }
 
-    // Attach media
+    function showReplyPreview() {
+        var existing = document.getElementById('replyPreview');
+        if (existing) existing.remove();
+
+        var preview = document.createElement('div');
+        preview.id = 'replyPreview';
+        preview.className = 'reply-preview';
+        preview.innerHTML = '<div class="reply-preview-content">' +
+            '<span class="reply-preview-name">' + escapeHtml(replyingTo.senderName) + '</span>' +
+            '<span class="reply-preview-text">' + escapeHtml(replyingTo.text) + '</span></div>' +
+            '<button id="cancelReply" class="reply-cancel">&times;</button>';
+
+        var inputArea = document.getElementById('messageInputArea');
+        inputArea.parentNode.insertBefore(preview, inputArea);
+
+        document.getElementById('cancelReply').addEventListener('click', function() {
+            replyingTo = null;
+            hideReplyPreview();
+        });
+    }
+
+    function hideReplyPreview() {
+        var existing = document.getElementById('replyPreview');
+        if (existing) existing.remove();
+    }    // Attach media
     document.getElementById('attachBtn').addEventListener('click', function() {
         document.getElementById('attachInput').click();
     });
@@ -1127,6 +1176,42 @@
         if (!document.hidden && liveLocationActive) {
             sendLocationUpdate();
         }
+    });
+
+    // Emoji picker
+    var emojis = ['😊','😂','❤️','👍','👎','🙏','🔥','🎉','😢','😮','😡','🤔','👋','💯','✅','❌','⭐','🙌','💪','😎','🥳','😍','🤣','😭','😱','🤝','👏','💀','🫡','😴'];
+
+    document.getElementById('emojiBtn').addEventListener('click', function() {
+        var existing = document.getElementById('emojiPicker');
+        if (existing) { existing.remove(); return; }
+
+        var picker = document.createElement('div');
+        picker.id = 'emojiPicker';
+        picker.className = 'emoji-picker';
+        picker.innerHTML = emojis.map(function(e) {
+            return '<span class="emoji-item">' + e + '</span>';
+        }).join('');
+
+        var inputArea = document.getElementById('messageInputArea');
+        inputArea.parentNode.insertBefore(picker, inputArea);
+
+        picker.querySelectorAll('.emoji-item').forEach(function(item) {
+            item.addEventListener('click', function() {
+                var input = document.getElementById('messageText');
+                input.value += item.textContent;
+                input.focus();
+            });
+        });
+
+        // Close picker when clicking outside
+        setTimeout(function() {
+            document.addEventListener('click', function closePicker(e) {
+                if (!picker.contains(e.target) && e.target.id !== 'emojiBtn') {
+                    picker.remove();
+                    document.removeEventListener('click', closePicker);
+                }
+            });
+        }, 100);
     });
 
     // Handle incoming messages
