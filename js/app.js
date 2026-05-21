@@ -218,6 +218,7 @@
     }
 
     function startDirectChat(peerId, name) {
+        console.log('startDirectChat called with:', peerId, name);
         // Create or find existing direct chat with this user
         var chats = Storage.getChats();
         var existing = chats.find(function(c) { return c.creatorPeerId === peerId || (c.directPeer === peerId); });
@@ -242,6 +243,7 @@
         selectChat(roomCode);
 
         // Connect to the peer
+        console.log('Connecting to peer:', peerId, 'room:', roomCode);
         PeerManager.connectToPeer(peerId, roomCode);
     }
 
@@ -344,6 +346,8 @@
     function sendMessage() {
         var text = document.getElementById('messageText').value.trim();
         if (!text || !currentRoom) return;
+
+        console.log('Sending message to room:', currentRoom, 'connections:', PeerManager.getConnectedPeers(currentRoom));
 
         var msg = {
             type: 'message',
