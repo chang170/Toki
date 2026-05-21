@@ -307,16 +307,22 @@
         // Update header
         var peers = PeerManager.getConnectedPeers(roomCode);
         var isCreator = chat.createdBy === account.peerId;
-        var deleteBtn = isCreator ? ' <button id="deleteGroupBtn" style="background:#d63031;color:#fff;border:none;border-radius:4px;padding:0.3rem 0.6rem;font-size:0.75rem;cursor:pointer;margin-left:0.5rem;">Delete Group</button>' : '';
+        var deleteBtn = '';
+        if (chat.isGroup && isCreator) {
+            deleteBtn = ' <button id="deleteGroupBtn" style="background:#d63031;color:#fff;border:none;border-radius:4px;padding:0.3rem 0.6rem;font-size:0.75rem;cursor:pointer;margin-left:0.5rem;">Delete</button>';
+        } else if (!chat.isGroup) {
+            deleteBtn = ' <button id="deleteGroupBtn" style="background:#d63031;color:#fff;border:none;border-radius:4px;padding:0.3rem 0.6rem;font-size:0.75rem;cursor:pointer;margin-left:0.5rem;">Delete</button>';
+        }
+        var inviteBtn = chat.isGroup ? ' <button id="inviteBtn" style="background:#00b894;color:#fff;border:none;border-radius:4px;padding:0.3rem 0.6rem;font-size:0.75rem;cursor:pointer;margin-left:0.5rem;">Invite</button>' : '';
 
         document.getElementById('chatHeader').innerHTML =
-            '<span class="chat-title">' + escapeHtml(chat.name) + ' <small style="color:#636e72;">(' + roomCode.split('.')[0] + ')</small>' + deleteBtn + '</span>' +
+            '<span class="chat-title">' + escapeHtml(chat.name) + ' <small style="color:#636e72;">(' + roomCode.split('.')[0] + ')</small>' + inviteBtn + deleteBtn + '</span>' +
             '<span class="chat-status">' + peers + ' connected</span>';
 
         // Delete handler
-        if (isCreator) {
+        if (document.getElementById('deleteGroupBtn')) {
             document.getElementById('deleteGroupBtn').addEventListener('click', function() {
-                if (!confirm('Delete this group? This cannot be undone.')) return;
+                if (!confirm('Delete this chat? This cannot be undone.')) return;
                 var chats = Storage.getChats().filter(function(c) { return c.roomCode !== roomCode; });
                 Storage.saveChats(chats);
                 localStorage.removeItem('messenger_msgs_' + roomCode);
@@ -325,6 +331,20 @@
                 document.getElementById('messages').innerHTML = '';
                 document.getElementById('messageInputArea').hidden = true;
                 renderChatList();
+            });
+        }
+
+        // Invite handler
+        if (chat.isGroup && document.getElementById('inviteBtn')) {
+            document.getElementById('inviteBtn').addEventListener('click', function() {
+                var code = roomCode;
+                if (navigator.clipboard) {
+                    navigator.clipboard.writeText(code).then(function() {
+                        alert('Group code copied!\n\nShare this with others to join:\n' + code);
+                    });
+                } else {
+                    prompt('Share this group code with others:', code);
+                }
             });
         }
 
