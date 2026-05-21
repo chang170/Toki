@@ -7,8 +7,11 @@ body {
     overflow: hidden;
     font-size: 18px;
     font-weight: 600;
-    font-style: normal;
+    font-style: normal !important;
+    -webkit-font-smoothing: antialiased;
 }
+
+* { font-style: normal !important; }
 
 .screen { display: none; height: 100vh; }
 .screen.active { display: flex; }
