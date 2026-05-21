@@ -31,6 +31,15 @@ var PeerManager = {
             console.log('Connected to signaling server. ID:', id);
         });
 
+        this.peer.on('disconnected', function() {
+            console.log('Disconnected from signaling server. Reconnecting...');
+            self.peer.reconnect();
+        });
+
+        this.peer.on('close', function() {
+            console.log('Peer connection closed.');
+        });
+
         this.peer.on('connection', function(conn) {
             console.log('Incoming connection from:', conn.peer);
             self.handleIncoming(conn);
