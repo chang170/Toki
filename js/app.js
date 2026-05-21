@@ -416,7 +416,14 @@
             // Auto-add chat if we don't have it
             var chats = Storage.getChats();
             if (!chats.some(function(c) { return c.roomCode === data.roomCode; })) {
-                Storage.addChat({ roomCode: data.roomCode, name: 'Group ' + data.roomCode.split('.')[0], isGroup: true });
+                var chatName = data.senderName || 'Chat';
+                var isGroup = data.roomCode.indexOf('DM.') !== 0;
+                Storage.addChat({
+                    roomCode: data.roomCode,
+                    name: chatName,
+                    isGroup: isGroup,
+                    directPeer: data.sender
+                });
             }
 
             if (currentRoom === data.roomCode) {
