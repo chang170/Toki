@@ -370,3 +370,44 @@ body.theme-cartoon .sidebar-actions button { border: 2px solid #ff8f00; backgrou
     border: none; border-radius: 6px; cursor: pointer; font-weight: 600;
 }
 #saveProfileBtn:hover { background: #5a6fd6; }
+
+/* Offline users and last seen */
+.offline-dot { background: #b2bec3 !important; }
+.online-user.offline { opacity: 0.7; }
+.last-seen-text { display: inline; font-size: 0.6rem; color: #b2bec3; font-weight: 400; }
+
+/* Emoji picker */
+#emojiBtn { background: #f0f2f5; font-size: 1.2rem; padding: 0.5rem 0.7rem; border-radius: 50%; }
+#emojiBtn:hover { background: #e0e0e0; }
+.emoji-picker {
+    background: #fff; border: 1px solid #dfe6e9; border-radius: 8px;
+    padding: 0.5rem; display: flex; flex-wrap: wrap; gap: 0.3rem;
+    max-width: 300px; box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    margin: 0 0.5rem 0.5rem;
+}
+.emoji-item {
+    font-size: 1.5rem; cursor: pointer; padding: 0.3rem;
+    border-radius: 4px; line-height: 1;
+}
+.emoji-item:hover { background: #f0f2f5; }
+
+/* Reply preview */
+.reply-preview {
+    display: flex; align-items: center; padding: 0.5rem 1rem;
+    background: #f0f2f5; border-left: 3px solid #667eea;
+    margin: 0 0.5rem; border-radius: 4px;
+}
+.reply-preview-content { flex: 1; }
+.reply-preview-name { font-size: 0.75rem; color: #667eea; font-weight: 700; display: block; }
+.reply-preview-text { font-size: 0.8rem; color: #636e72; display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 250px; }
+.reply-cancel { background: none; border: none; font-size: 1.2rem; cursor: pointer; color: #636e72; padding: 0.3rem; }
+.reply-cancel:hover { color: #d63031; }
+
+/* Reply quote in message */
+.msg-reply-quote {
+    background: rgba(0,0,0,0.05); border-left: 2px solid #667eea;
+    padding: 0.3rem 0.5rem; border-radius: 4px; margin-bottom: 0.4rem;
+    font-size: 0.8rem;
+}
+.msg-reply-quote .reply-name { color: #667eea; font-weight: 700; display: block; font-size: 0.7rem; }
+.msg-reply-quote .reply-text { color: #636e72; display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 200px; }
