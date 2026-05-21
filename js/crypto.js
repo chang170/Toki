@@ -20,17 +20,27 @@ var CryptoUtil = {
         return 'msg-' + username.toLowerCase().replace(/[^a-z0-9]/g, '') + '-' + rand + time;
     },
 
-    // Generate room code that includes full peer ID
-    generateRoomCode: function(peerId) {
+    // Generate room code that includes full peer ID and group name
+    generateRoomCode: function(peerId, groupName) {
         var rand = Math.random().toString(36).substring(2, 6).toUpperCase();
-        return rand + '.' + peerId;
+        var encodedName = groupName ? encodeURIComponent(groupName) : '';
+        return rand + '.' + peerId + '.' + encodedName;
     },
 
     // Extract peer ID from room code
     extractPeerId: function(roomCode) {
-        var dotIdx = roomCode.indexOf('.');
-        if (dotIdx !== -1) {
-            return roomCode.substring(dotIdx + 1);
+        var parts = roomCode.split('.');
+        if (parts.length >= 2) {
+            return parts[1];
+        }
+        return null;
+    },
+
+    // Extract group name from room code
+    extractGroupName: function(roomCode) {
+        var parts = roomCode.split('.');
+        if (parts.length >= 3 && parts[2]) {
+            return decodeURIComponent(parts[2]);
         }
         return null;
     }

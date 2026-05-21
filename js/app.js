@@ -117,7 +117,7 @@
     document.getElementById('createRoomBtn').addEventListener('click', function() {
         var name = document.getElementById('newRoomName').value.trim() || 'Chat';
         var isGroup = document.getElementById('isGroupChat').checked;
-        var code = CryptoUtil.generateRoomCode(account.peerId);
+        var code = CryptoUtil.generateRoomCode(account.peerId, name);
 
         var chat = {
             roomCode: code,
@@ -147,12 +147,12 @@
         var code = document.getElementById('joinRoomCode').value.trim();
         if (!code) { alert('Enter a group code.'); return; }
 
-        var joinName = document.getElementById('joinRoomName').value.trim();
         var creatorPeerId = CryptoUtil.extractPeerId(code);
+        var groupName = CryptoUtil.extractGroupName(code) || 'Group ' + code.split('.')[0];
 
         var chat = {
             roomCode: code,
-            name: joinName || 'Group ' + code.split('.')[0],
+            name: groupName,
             isGroup: true,
             joined: new Date().toISOString(),
             creatorPeerId: creatorPeerId
@@ -162,7 +162,6 @@
         renderChatList();
         document.getElementById('newChatModal').hidden = true;
         document.getElementById('joinRoomCode').value = '';
-        document.getElementById('joinRoomName').value = '';
         selectChat(code);
 
         // Connect to the creator
