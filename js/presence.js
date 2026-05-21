@@ -11,7 +11,7 @@ var Presence = {
     // Register as online
     goOnline: function(peerId, username) {
         var self = this;
-        this.myKey = peerId.replace(/[.#$[\]]/g, '_');
+        this.myKey = peerId.replace(/[.#$\[\]\/]/g, '_');
         var data = JSON.stringify({
             peerId: peerId,
             username: username,
@@ -23,10 +23,13 @@ var Presence = {
 
         // Poll for users every 5 seconds
         this.pollInterval = setInterval(function() {
+            var profile = JSON.parse(localStorage.getItem('toki_profile') || '{}');
             // Update my timestamp
             self.put(self.myKey, JSON.stringify({
                 peerId: peerId,
-                username: username,
+                username: profile.nickname || profile.firstName || username,
+                picture: profile.picture || '',
+                showLastSeen: profile.showLastSeen !== false,
                 lastSeen: Date.now()
             }));
             // Fetch all users
@@ -61,8 +64,8 @@ var Presence = {
                 if (data) {
                     for (var key in data) {
                         var user = data[key];
-                        // Consider online if seen in last 15 seconds
-                        if (now - user.lastSeen < 15000) {
+                        // Consider online if seen in last 30 seconds
+                        if (now - user.lastSeen < 30000) {
                             users.push(user);
                         } else {
                             // Clean up stale entries

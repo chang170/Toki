@@ -174,12 +174,72 @@
     });
 
     // Settings
+    document.getElementById('closeSettings').addEventListener('click', function() {
+        document.getElementById('settingsModal').hidden = true;
+    });
+
+    // Profile
+    var profile = JSON.parse(localStorage.getItem('toki_profile') || '{}');
+
+    document.getElementById('uploadPicBtn').addEventListener('click', function() {
+        document.getElementById('profilePicInput').click();
+    });
+
+    document.getElementById('profilePicInput').addEventListener('change', function(e) {
+        var file = e.target.files[0];
+        if (!file) return;
+        // Compress and store
+        var img = new Image();
+        img.onload = function() {
+            var canvas = document.createElement('canvas');
+            var size = 100;
+            canvas.width = size;
+            canvas.height = size;
+            var ctx = canvas.getContext('2d');
+            ctx.drawImage(img, 0, 0, size, size);
+            var dataUrl = canvas.toDataURL('image/jpeg', 0.7);
+            profile.picture = dataUrl;
+            localStorage.setItem('toki_profile', JSON.stringify(profile));
+            renderProfilePic();
+        };
+        img.src = URL.createObjectURL(file);
+    });
+
+    document.getElementById('saveProfileBtn').addEventListener('click', function() {
+        profile.firstName = document.getElementById('profileFirstName').value.trim();
+        profile.lastName = document.getElementById('profileLastName').value.trim();
+        profile.nickname = document.getElementById('profileNickname').value.trim();
+        profile.showLastSeen = document.getElementById('profileShowLastSeen').checked;
+        localStorage.setItem('toki_profile', JSON.stringify(profile));
+        alert('Profile saved.');
+
+        // Update display name in sidebar
+        var displayName = profile.nickname || profile.firstName || account.username;
+        document.getElementById('myName').textContent = displayName;
+    });
+
+    function loadProfileForm() {
+        document.getElementById('profileFirstName').value = profile.firstName || '';
+        document.getElementById('profileLastName').value = profile.lastName || '';
+        document.getElementById('profileNickname').value = profile.nickname || '';
+        document.getElementById('profileShowLastSeen').checked = profile.showLastSeen !== false;
+        renderProfilePic();
+    }
+
+    function renderProfilePic() {
+        var preview = document.getElementById('profilePicPreview');
+        if (profile.picture) {
+            preview.innerHTML = '<img src="' + profile.picture + '">';
+        } else {
+            preview.textContent = '👤';
+        }
+    }
+
+    // Load profile when settings opened
     document.getElementById('settingsBtn').addEventListener('click', function() {
         document.getElementById('myPeerId').textContent = account.peerId;
         document.getElementById('settingsModal').hidden = false;
-    });
-    document.getElementById('closeSettings').addEventListener('click', function() {
-        document.getElementById('settingsModal').hidden = true;
+        loadProfileForm();
     });
 
     // Theme switching
@@ -235,8 +295,10 @@
         users.forEach(function(user) {
             if (user.peerId === account.peerId) return; // Skip self
             count++;
+            var avatar = user.picture ? '<img src="' + user.picture + '" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">' : '';
             html += '<div class="online-user" data-peer="' + escapeHtml(user.peerId) + '" data-name="' + escapeHtml(user.username) + '">' +
                 '<span class="online-dot"></span>' +
+                (avatar ? '<span style="width:24px;height:24px;border-radius:50%;overflow:hidden;display:inline-block;">' + avatar + '</span>' : '') +
                 '<span class="online-user-name">' + escapeHtml(user.username) + '</span>' +
                 '<span class="online-user-chat">Chat</span></div>';
         });
@@ -423,7 +485,12 @@
             if (!isMine) html += '<div class="msg-sender">' + escapeHtml(msg.senderName || 'Unknown') + '</div>';
             if (msg.location) {
                 var mapLink = 'https://www.google.com/maps?q=' + msg.location.lat + ',' + msg.location.lng;
-                html += '<div class="msg-location"><a href="' + mapLink + '" target="_blank" style="color:#667eea;text-decoration:none;">📍 ' + (msg.location.live ? 'Live location' : 'Location') + ' (' + msg.location.lat.toFixed(4) + ', ' + msg.location.lng.toFixed(4) + ')</a></div>';
+                var mapImg = 'https://staticmap.openstreetmap.de/staticmap.php?center=' + msg.location.lat + ',' + msg.location.lng + '&zoom=15&size=250x150&markers=' + msg.location.lat + ',' + msg.location.lng + ',red-pushpin';
+                html += '<div class="msg-location">' +
+                    '<a href="' + mapLink + '" target="_blank">' +
+                    '<img src="' + mapImg + '" style="border-radius:6px;width:250px;height:150px;display:block;margin-bottom:0.3rem;">' +
+                    '</a>' +
+                    '<a href="' + mapLink + '" target="_blank" style="color:#667eea;text-decoration:none;font-size:0.85rem;">📍 ' + (msg.location.live ? 'Live location' : 'Open in Maps') + '</a></div>';
             } else if (msg.media) {
                 if (msg.mediaType && msg.mediaType.startsWith('video')) {
                     html += '<div class="msg-media"><video src="' + msg.media + '" controls></video></div>';
@@ -578,21 +645,25 @@
             var selected = document.querySelectorAll('.invite-check:checked');
             if (selected.length === 0) { alert('Select at least one user.'); return; }
 
+            var delay = 0;
             selected.forEach(function(cb) {
                 var peerId = cb.dataset.peer;
-                // Connect to peer and send invite
-                PeerManager.connectToPeer(peerId, roomCode);
-                // Send invite message after short delay for connection to establish
-                setTimeout(function() {
-                    PeerManager.sendMessage(roomCode, {
-                        type: 'invite',
-                        roomCode: roomCode,
-                        groupName: groupName,
-                        sender: account.peerId,
-                        senderName: account.username,
-                        invitedPeer: peerId
-                    });
-                }, 1500);
+                delay += 2000;
+                (function(pid, d) {
+                    // Connect to peer
+                    PeerManager.connectToPeer(pid, roomCode);
+                    // Send invite after connection has time to establish
+                    setTimeout(function() {
+                        PeerManager.sendMessage(roomCode, {
+                            type: 'invite',
+                            roomCode: roomCode,
+                            groupName: groupName,
+                            sender: account.peerId,
+                            senderName: account.username,
+                            invitedPeer: pid
+                        });
+                    }, d);
+                })(peerId, delay);
             });
 
             modal.remove();
