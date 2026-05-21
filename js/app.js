@@ -182,6 +182,28 @@
         document.getElementById('settingsModal').hidden = true;
     });
 
+    // Theme switching
+    var savedTheme = localStorage.getItem('toki_theme') || 'default';
+    applyTheme(savedTheme);
+
+    document.querySelectorAll('.theme-btn').forEach(function(btn) {
+        btn.addEventListener('click', function() {
+            var theme = btn.dataset.theme;
+            applyTheme(theme);
+            localStorage.setItem('toki_theme', theme);
+        });
+    });
+
+    function applyTheme(theme) {
+        document.body.className = '';
+        if (theme !== 'default') {
+            document.body.classList.add('theme-' + theme);
+        }
+        document.querySelectorAll('.theme-btn').forEach(function(b) { b.classList.remove('active'); });
+        var activeBtn = document.querySelector('.theme-btn[data-theme="' + theme + '"]');
+        if (activeBtn) activeBtn.classList.add('active');
+    }
+
     document.getElementById('exportIdentityBtn').addEventListener('click', function() {
         var json = Storage.exportIdentity();
         if (!json) return;
