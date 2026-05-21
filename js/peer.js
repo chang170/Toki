@@ -40,6 +40,19 @@ var PeerManager = {
             console.log('Peer connection closed.');
         });
 
+        // Reconnect when tab becomes visible again (mobile fix)
+        document.addEventListener('visibilitychange', function() {
+            if (!document.hidden && self.peer) {
+                if (self.peer.disconnected) {
+                    console.log('Tab resumed. Reconnecting to signaling server...');
+                    self.peer.reconnect();
+                } else if (self.peer.destroyed) {
+                    console.log('Tab resumed. Peer was destroyed. Reinitializing...');
+                    self.init(self.myPeerId, self.myName);
+                }
+            }
+        });
+
         this.peer.on('connection', function(conn) {
             console.log('Incoming connection from:', conn.peer);
             self.handleIncoming(conn);
@@ -48,8 +61,14 @@ var PeerManager = {
         this.peer.on('error', function(err) {
             console.error('Peer error:', err.type, err.message);
             if (err.type === 'unavailable-id') {
-                // ID taken, regenerate
-                alert('Connection ID conflict. Please try again.');
+                // ID temporarily taken (stale connection). Wait and retry.
+                console.log('Peer ID unavailable. Retrying in 5 seconds...');
+                setTimeout(function() {
+                    if (self.peer) self.peer.destroy();
+                    self.init(self.myPeerId, self.myName);
+                }, 5000);
+            } else if (err.type === 'disconnected') {
+                self.peer.reconnect();
             }
         });
     },
@@ -137,7 +156,7 @@ var PeerManager = {
                 self.connections[roomCode].push(conn);
             }
             if (self.onPeerConnected) self.onPeerConnected(data.peerId, roomCode, data.name);
-        } else if (data.type === 'message') {
+        } else if (data.type === 'message' || data.type === 'receipt') {
             if (self.onMessage) self.onMessage(data);
         }
     },
