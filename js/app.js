@@ -352,6 +352,7 @@
         var inviteBtn = chat.isGroup ? ' <button id="inviteBtn" style="background:#00b894;color:#fff;border:none;border-radius:4px;padding:0.3rem 0.6rem;font-size:0.75rem;cursor:pointer;margin-left:0.5rem;">Invite</button>' : '';
 
         document.getElementById('chatHeader').innerHTML =
+            '<button class="back-btn" id="backBtn">←</button>' +
             '<span class="chat-title">' + escapeHtml(chat.name) + ' <small style="color:#636e72;">(' + roomCode.split('.')[0] + ')</small>' + inviteBtn + deleteBtn + '</span>' +
             '<span class="chat-status">' + peers + ' connected</span>';
 
@@ -373,15 +374,20 @@
         // Invite handler
         if (chat.isGroup && document.getElementById('inviteBtn')) {
             document.getElementById('inviteBtn').addEventListener('click', function() {
-                var code = roomCode;
-                if (navigator.clipboard) {
-                    navigator.clipboard.writeText(code).then(function() {
-                        alert('Group code copied!\n\nShare this with others to join:\n' + code);
-                    });
-                } else {
-                    prompt('Share this group code with others:', code);
-                }
+                showInviteModal(roomCode, chat.name);
             });
+        }
+
+        // Back button handler (mobile)
+        if (document.getElementById('backBtn')) {
+            document.getElementById('backBtn').addEventListener('click', function() {
+                document.querySelector('.sidebar').classList.remove('hidden');
+            });
+        }
+
+        // Hide sidebar on mobile when chat is selected
+        if (window.innerWidth <= 768) {
+            document.querySelector('.sidebar').classList.add('hidden');
         }
 
         // Reconnect to peer if not connected
@@ -444,21 +450,12 @@
         container.innerHTML = html || '<p style="text-align:center;color:#636e72;margin-top:2rem;">No messages yet. Say hello!</p>';
         container.scrollTop = container.scrollHeight;
 
-        // Attach context menu for delete
+        // Attach context menu for delete (double-click/double-tap)
         container.querySelectorAll('.msg[data-msg-idx]').forEach(function(el) {
-            el.addEventListener('contextmenu', function(e) {
+            el.addEventListener('dblclick', function(e) {
                 e.preventDefault();
                 showDeleteMenu(e, parseInt(el.dataset.msgIdx));
             });
-            // Long press for mobile
-            var timer = null;
-            el.addEventListener('touchstart', function(e) {
-                timer = setTimeout(function() {
-                    showDeleteMenu(e, parseInt(el.dataset.msgIdx));
-                }, 600);
-            });
-            el.addEventListener('touchend', function() { clearTimeout(timer); });
-            el.addEventListener('touchmove', function() { clearTimeout(timer); });
         });
     }
 
@@ -538,6 +535,120 @@
         });
 
         renderMessages(currentRoom);
+    }
+
+    // Group invite with user picker
+    function showInviteModal(roomCode, groupName) {
+        var existing = document.getElementById('inviteModal');
+        if (existing) existing.remove();
+
+        // Get online users
+        var onlineUsers = [];
+        document.querySelectorAll('.online-user').forEach(function(el) {
+            onlineUsers.push({ peerId: el.dataset.peer, name: el.dataset.name });
+        });
+
+        if (onlineUsers.length === 0) {
+            alert('No other users online to invite.');
+            return;
+        }
+
+        var modal = document.createElement('div');
+        modal.id = 'inviteModal';
+        modal.className = 'modal';
+        modal.innerHTML =
+            '<div class="modal-content">' +
+            '<h2>Invite to ' + escapeHtml(groupName) + '</h2>' +
+            '<p style="font-size:0.85rem;color:#636e72;margin-bottom:1rem;">Select users to invite:</p>' +
+            '<div id="inviteUserList">' +
+            onlineUsers.map(function(u) {
+                return '<label style="display:flex;align-items:center;gap:0.5rem;padding:0.5rem 0;font-size:1rem;cursor:pointer;">' +
+                    '<input type="checkbox" class="invite-check" data-peer="' + u.peerId + '" data-name="' + escapeHtml(u.name) + '"> ' +
+                    escapeHtml(u.name) + '</label>';
+            }).join('') +
+            '</div>' +
+            '<div style="margin-top:1rem;display:flex;gap:0.5rem;">' +
+            '<button id="sendInviteBtn" style="flex:1;">Send Invite</button>' +
+            '<button id="cancelInviteBtn" class="modal-close" style="position:static;font-size:1rem;padding:0.6rem 1.2rem;">Cancel</button>' +
+            '</div></div>';
+
+        document.body.appendChild(modal);
+
+        document.getElementById('sendInviteBtn').addEventListener('click', function() {
+            var selected = document.querySelectorAll('.invite-check:checked');
+            if (selected.length === 0) { alert('Select at least one user.'); return; }
+
+            selected.forEach(function(cb) {
+                var peerId = cb.dataset.peer;
+                // Connect to peer and send invite
+                PeerManager.connectToPeer(peerId, roomCode);
+                // Send invite message after short delay for connection to establish
+                setTimeout(function() {
+                    PeerManager.sendMessage(roomCode, {
+                        type: 'invite',
+                        roomCode: roomCode,
+                        groupName: groupName,
+                        sender: account.peerId,
+                        senderName: account.username,
+                        invitedPeer: peerId
+                    });
+                }, 1500);
+            });
+
+            modal.remove();
+            alert('Invite sent to ' + selected.length + ' user(s).');
+        });
+
+        document.getElementById('cancelInviteBtn').addEventListener('click', function() {
+            modal.remove();
+        });
+    }
+
+    // Handle incoming invites
+    var pendingInvites = [];
+
+    function handleInvite(data) {
+        // Show invite notification
+        var notification = document.createElement('div');
+        notification.className = 'invite-notification';
+        notification.innerHTML =
+            '<div class="invite-content">' +
+            '<strong>' + escapeHtml(data.senderName) + '</strong> invited you to join<br>' +
+            '<span style="color:#667eea;font-weight:700;">' + escapeHtml(data.groupName) + '</span>' +
+            '</div>' +
+            '<div class="invite-actions">' +
+            '<button class="invite-accept">Accept</button>' +
+            '<button class="invite-decline">Decline</button>' +
+            '</div>';
+
+        document.body.appendChild(notification);
+
+        notification.querySelector('.invite-accept').addEventListener('click', function() {
+            // Add group to chat list
+            var chat = {
+                roomCode: data.roomCode,
+                name: data.groupName,
+                isGroup: true,
+                joined: new Date().toISOString(),
+                creatorPeerId: data.sender
+            };
+            Storage.addChat(chat);
+            renderChatList();
+            selectChat(data.roomCode);
+
+            // Connect to the inviter
+            PeerManager.connectToPeer(data.sender, data.roomCode);
+            notification.remove();
+        });
+
+        notification.querySelector('.invite-decline').addEventListener('click', function() {
+            notification.remove();
+        });
+
+        // Auto-dismiss after 30 seconds
+        setTimeout(function() {
+            if (notification.parentNode) notification.remove();
+        }, 30000);
     }
 
     // Send message
@@ -878,6 +989,11 @@
             // Update page title with total unread
             updateTitleBadge();
             renderChatList();
+        } else if (data.type === 'invite') {
+            // Handle group invite
+            if (data.invitedPeer === account.peerId || !data.invitedPeer) {
+                handleInvite(data);
+            }
         } else if (data.type === 'delete') {
             // Handle delete for everyone
             if (data.msgId && data.roomCode) {
