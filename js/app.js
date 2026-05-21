@@ -199,7 +199,7 @@
         users.forEach(function(user) {
             if (user.peerId === account.peerId) return; // Skip self
             count++;
-            html += '<div class="online-user" data-peer="' + escapeHtml(user.peerId) + '">' +
+            html += '<div class="online-user" data-peer="' + escapeHtml(user.peerId) + '" data-name="' + escapeHtml(user.username) + '">' +
                 '<span class="online-dot"></span>' +
                 '<span class="online-user-name">' + escapeHtml(user.username) + '</span>' +
                 '<span class="online-user-chat">Chat</span></div>';
@@ -211,16 +211,14 @@
         document.querySelectorAll('.online-user').forEach(function(el) {
             el.addEventListener('click', function() {
                 var peerId = el.dataset.peer;
-                var name = el.querySelector('.online-user-name').textContent;
+                var name = el.dataset.name;
                 startDirectChat(peerId, name);
             });
         });
     }
 
     function startDirectChat(peerId, name) {
-        console.log('startDirectChat called with:', peerId, name);
-        
-        // Generate a deterministic room code from both peer IDs (same regardless of who initiates)
+        // Generate a deterministic room code from both peer IDs
         var ids = [account.peerId, peerId].sort();
         var roomCode = 'DM.' + ids[0] + '.' + ids[1];
 
@@ -238,14 +236,16 @@
                 directPeer: peerId
             };
             Storage.addChat(chat);
+            renderChatList();
         }
 
-        renderChatList();
         selectChat(roomCode);
 
-        // Always try to connect
-        console.log('Connecting to peer:', peerId, 'room:', roomCode);
-        PeerManager.connectToPeer(peerId, roomCode);
+        // Only connect if not already connected
+        if (PeerManager.getConnectedPeers(roomCode) === 0) {
+            console.log('Connecting to peer:', peerId);
+            PeerManager.connectToPeer(peerId, roomCode);
+        }
     }
 
     // Chat list
@@ -309,7 +309,7 @@
         }
 
         // Reconnect to peer if not connected
-        if (peers === 0) {
+        if (PeerManager.getConnectedPeers(roomCode) === 0) {
             if (chat.directPeer) {
                 console.log('Reconnecting to direct peer:', chat.directPeer);
                 PeerManager.connectToPeer(chat.directPeer, roomCode);

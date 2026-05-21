@@ -62,6 +62,14 @@ var PeerManager = {
     connectToPeer: function(remotePeerId, roomCode) {
         var self = this;
         if (remotePeerId === this.myPeerId) return;
+        
+        // Don't connect if already connected to this peer in this room
+        var existing = (this.connections[roomCode] || []).filter(function(c) { return c.peer === remotePeerId && c.open; });
+        if (existing.length > 0) {
+            console.log('Already connected to:', remotePeerId);
+            return;
+        }
+        
         console.log('Attempting to connect to:', remotePeerId);
 
         var conn = this.peer.connect(remotePeerId, { reliable: true });
