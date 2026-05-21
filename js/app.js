@@ -418,28 +418,75 @@
         var file = e.target.files[0];
         if (!file || !currentRoom) return;
 
-        // Convert to base64 for P2P transfer
-        var reader = new FileReader();
-        reader.onload = function(ev) {
-            var msg = {
-                type: 'message',
-                roomCode: currentRoom,
-                sender: account.peerId,
-                senderName: account.username,
-                text: '',
-                media: ev.target.result,
-                mediaType: file.type,
-                timestamp: Date.now()
+        if (file.type.startsWith('image/')) {
+            // Compress image before sending
+            compressImage(file, function(dataUrl) {
+                sendMediaMessage(dataUrl, file.type);
+            });
+        } else if (file.type.startsWith('video/')) {
+            // Videos: limit to 5MB
+            if (file.size > 5 * 1024 * 1024) {
+                alert('Video too large. Max 5MB.');
+                e.target.value = '';
+                return;
+            }
+            var reader = new FileReader();
+            reader.onload = function(ev) {
+                sendMediaMessage(ev.target.result, file.type);
             };
-
-            Storage.saveMessage(currentRoom, msg);
-            PeerManager.sendMessage(currentRoom, msg);
-            renderMessages(currentRoom);
-            renderChatList();
-        };
-        reader.readAsDataURL(file);
+            reader.readAsDataURL(file);
+        }
         e.target.value = '';
     });
+
+    function compressImage(file, callback) {
+        var img = new Image();
+        img.onload = function() {
+            var canvas = document.createElement('canvas');
+            var maxSize = 800; // Max width/height
+            var width = img.width;
+            var height = img.height;
+
+            if (width > maxSize || height > maxSize) {
+                if (width > height) {
+                    height = Math.round(height * maxSize / width);
+                    width = maxSize;
+                } else {
+                    width = Math.round(width * maxSize / height);
+                    height = maxSize;
+                }
+            }
+
+            canvas.width = width;
+            canvas.height = height;
+            var ctx = canvas.getContext('2d');
+            ctx.drawImage(img, 0, 0, width, height);
+            var dataUrl = canvas.toDataURL('image/jpeg', 0.6);
+            callback(dataUrl);
+        };
+        img.src = URL.createObjectURL(file);
+    }
+
+    function sendMediaMessage(dataUrl, mediaType) {
+        var msg = {
+            type: 'message',
+            roomCode: currentRoom,
+            sender: account.peerId,
+            senderName: account.username,
+            text: '',
+            media: dataUrl,
+            mediaType: mediaType,
+            msgId: Date.now() + '-' + Math.random().toString(36).substr(2, 5),
+            delivered: false,
+            read: false,
+            timestamp: Date.now()
+        };
+
+        Storage.saveMessage(currentRoom, msg);
+        PeerManager.sendMessage(currentRoom, msg);
+        renderMessages(currentRoom);
+        renderChatList();
+    }
 
     // Handle incoming messages
     // Unread message tracking
