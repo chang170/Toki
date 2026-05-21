@@ -209,22 +209,34 @@ body {
 
 /* Mobile responsive */
 @media (max-width: 768px) {
-    .app-layout { flex-direction: column; }
-    .sidebar { width: 100%; height: auto; max-height: 35vh; border-right: none; border-bottom: 1px solid #e0e0e0; }
-    .chat-area { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+    .app-layout { flex-direction: column; position: relative; }
+    .sidebar {
+        width: 100%; height: 100vh; border-right: none;
+        position: absolute; top: 0; left: 0; z-index: 50;
+        transition: transform 0.2s;
+    }
+    .sidebar.hidden { transform: translateX(-100%); }
+    .chat-area {
+        width: 100%; height: 100vh; display: flex; flex-direction: column;
+        position: absolute; top: 0; left: 0;
+    }
+    .chat-header { position: relative; }
+    .back-btn {
+        display: inline-block; margin-right: 0.5rem; background: none;
+        border: none; font-size: 1.3rem; cursor: pointer; padding: 0.2rem 0.5rem;
+    }
     .messages { flex: 1; min-height: 0; overflow-y: auto; }
     .message-input {
-        position: sticky;
-        bottom: 0;
-        background: #fff;
-        padding: 0.5rem;
-        border-top: 2px solid #667eea;
-        z-index: 10;
+        position: sticky; bottom: 0; background: #fff;
+        padding: 0.5rem; border-top: 2px solid #667eea; z-index: 10;
     }
     .message-input input[type="text"] { font-size: 16px; }
     #sendBtn { padding: 0.6rem 1rem; font-size: 0.9rem; }
-    .online-section { max-height: 80px; }
-    .chat-list { max-height: 120px; }
+    .online-section { max-height: 200px; }
+}
+
+@media (min-width: 769px) {
+    .back-btn { display: none; }
 }
 
 /* Theme switcher */
@@ -305,3 +317,30 @@ body.theme-cartoon .sidebar-actions button { border: 2px solid #ff8f00; backgrou
 
 /* Deleted message */
 .msg-deleted { opacity: 0.6; font-style: italic; }
+
+/* Invite notification */
+.invite-notification {
+    position: fixed; top: 20px; right: 20px; left: 20px;
+    background: #fff; border-radius: 12px; padding: 1.2rem;
+    box-shadow: 0 8px 30px rgba(0,0,0,0.2); z-index: 300;
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 1rem; max-width: 400px; margin: 0 auto;
+    border-left: 4px solid #667eea;
+    animation: slideDown 0.3s ease;
+}
+@keyframes slideDown {
+    from { transform: translateY(-100%); opacity: 0; }
+    to { transform: translateY(0); opacity: 1; }
+}
+.invite-content { flex: 1; font-size: 0.95rem; }
+.invite-actions { display: flex; gap: 0.5rem; }
+.invite-accept {
+    padding: 0.5rem 1rem; background: #667eea; color: #fff;
+    border: none; border-radius: 6px; cursor: pointer; font-weight: 600;
+}
+.invite-accept:hover { background: #5a6fd6; }
+.invite-decline {
+    padding: 0.5rem 1rem; background: #f0f2f5; color: #636e72;
+    border: none; border-radius: 6px; cursor: pointer; font-weight: 600;
+}
+.invite-decline:hover { background: #dfe6e9; }
