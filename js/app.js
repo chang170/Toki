@@ -403,10 +403,17 @@
     function renderMessages(roomCode) {
         var msgs = Storage.getMessages(roomCode);
         var html = '';
-        msgs.forEach(function(msg) {
+        msgs.forEach(function(msg, idx) {
+            if (msg.deleted) {
+                // Show deleted placeholder
+                var isMine = msg.sender === account.peerId;
+                var cls = isMine ? 'msg msg-sent msg-deleted' : 'msg msg-received msg-deleted';
+                html += '<div class="' + cls + '"><em>🚫 This message was deleted</em></div>';
+                return;
+            }
             var isMine = msg.sender === account.peerId;
             var cls = isMine ? 'msg msg-sent' : 'msg msg-received';
-            html += '<div class="' + cls + '">';
+            html += '<div class="' + cls + '" data-msg-idx="' + idx + '">';
             if (!isMine) html += '<div class="msg-sender">' + escapeHtml(msg.senderName || 'Unknown') + '</div>';
             if (msg.location) {
                 var mapLink = 'https://www.google.com/maps?q=' + msg.location.lat + ',' + msg.location.lng;
@@ -436,6 +443,100 @@
         var container = document.getElementById('messages');
         container.innerHTML = html || '<p style="text-align:center;color:#636e72;margin-top:2rem;">No messages yet. Say hello!</p>';
         container.scrollTop = container.scrollHeight;
+
+        // Attach context menu for delete
+        container.querySelectorAll('.msg[data-msg-idx]').forEach(function(el) {
+            el.addEventListener('contextmenu', function(e) {
+                e.preventDefault();
+                showDeleteMenu(e, parseInt(el.dataset.msgIdx));
+            });
+            // Long press for mobile
+            var timer = null;
+            el.addEventListener('touchstart', function(e) {
+                timer = setTimeout(function() {
+                    showDeleteMenu(e, parseInt(el.dataset.msgIdx));
+                }, 600);
+            });
+            el.addEventListener('touchend', function() { clearTimeout(timer); });
+            el.addEventListener('touchmove', function() { clearTimeout(timer); });
+        });
+    }
+
+    function showDeleteMenu(e, msgIdx) {
+        // Remove existing menu
+        var existing = document.getElementById('msgDeleteMenu');
+        if (existing) existing.remove();
+
+        var msgs = Storage.getMessages(currentRoom);
+        var msg = msgs[msgIdx];
+        if (!msg) return;
+
+        var menu = document.createElement('div');
+        menu.id = 'msgDeleteMenu';
+        menu.className = 'msg-context-menu';
+        menu.innerHTML =
+            '<button class="ctx-btn" id="deleteForMe">🗑 Delete for me</button>' +
+            (msg.sender === account.peerId ? '<button class="ctx-btn ctx-danger" id="deleteForAll">🗑 Delete for everyone</button>' : '') +
+            '<button class="ctx-btn" id="cancelDelete">Cancel</button>';
+
+        menu.style.position = 'fixed';
+        menu.style.left = (e.clientX || e.touches[0].clientX) + 'px';
+        menu.style.top = (e.clientY || e.touches[0].clientY) + 'px';
+        document.body.appendChild(menu);
+
+        document.getElementById('deleteForMe').addEventListener('click', function() {
+            deleteMessageForMe(msgIdx);
+            menu.remove();
+        });
+
+        if (document.getElementById('deleteForAll')) {
+            document.getElementById('deleteForAll').addEventListener('click', function() {
+                deleteMessageForAll(msgIdx);
+                menu.remove();
+            });
+        }
+
+        document.getElementById('cancelDelete').addEventListener('click', function() {
+            menu.remove();
+        });
+
+        // Close on click outside
+        setTimeout(function() {
+            document.addEventListener('click', function closeMenu() {
+                menu.remove();
+                document.removeEventListener('click', closeMenu);
+            });
+        }, 100);
+    }
+
+    function deleteMessageForMe(msgIdx) {
+        var msgs = Storage.getMessages(currentRoom);
+        msgs.splice(msgIdx, 1);
+        localStorage.setItem('messenger_msgs_' + currentRoom, JSON.stringify(msgs));
+        renderMessages(currentRoom);
+    }
+
+    function deleteMessageForAll(msgIdx) {
+        var msgs = Storage.getMessages(currentRoom);
+        var msg = msgs[msgIdx];
+        if (!msg || !msg.msgId) return;
+
+        // Mark as deleted locally
+        msgs[msgIdx].deleted = true;
+        msgs[msgIdx].text = '';
+        msgs[msgIdx].media = null;
+        msgs[msgIdx].location = null;
+        localStorage.setItem('messenger_msgs_' + currentRoom, JSON.stringify(msgs));
+
+        // Send delete signal to peers
+        PeerManager.sendMessage(currentRoom, {
+            type: 'delete',
+            msgId: msg.msgId,
+            roomCode: currentRoom,
+            sender: account.peerId
+        });
+
+        renderMessages(currentRoom);
     }
 
     // Send message
@@ -776,6 +877,24 @@
             // Update page title with total unread
             updateTitleBadge();
             renderChatList();
+        } else if (data.type === 'delete') {
+            // Handle delete for everyone
+            if (data.msgId && data.roomCode) {
+                var msgs = Storage.getMessages(data.roomCode);
+                for (var i = 0; i < msgs.length; i++) {
+                    if (msgs[i].msgId === data.msgId) {
+                        msgs[i].deleted = true;
+                        msgs[i].text = '';
+                        msgs[i].media = null;
+                        msgs[i].location = null;
+                        break;
+                    }
+                }
+                localStorage.setItem('messenger_msgs_' + data.roomCode, JSON.stringify(msgs));
+                if (currentRoom === data.roomCode) {
+                    renderMessages(data.roomCode);
+                }
+            }
         } else if (data.type === 'receipt') {
             // Update message status
             var msgs = Storage.getMessages(data.roomCode);

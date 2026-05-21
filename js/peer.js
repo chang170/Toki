@@ -156,7 +156,7 @@ var PeerManager = {
                 self.connections[roomCode].push(conn);
             }
             if (self.onPeerConnected) self.onPeerConnected(data.peerId, roomCode, data.name);
-        } else if (data.type === 'message' || data.type === 'receipt') {
+        } else if (data.type === 'message' || data.type === 'receipt' || data.type === 'delete') {
             if (self.onMessage) self.onMessage(data);
         }
     },
