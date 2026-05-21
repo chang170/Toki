@@ -7,11 +7,9 @@ body {
     overflow: hidden;
     font-size: 18px;
     font-weight: 600;
-    font-style: normal !important;
+    font-style: normal;
     -webkit-font-smoothing: antialiased;
 }
-
-* { font-style: normal !important; }
 
 .screen { display: none; height: 100vh; }
 .screen.active { display: flex; }
@@ -264,7 +262,7 @@ body.theme-dark .modal-content { background: #16213e; color: #e0e0e0; }
 body.theme-dark .modal-content input { background: #1a1a2e; color: #e0e0e0; border-color: #0f3460; }
 
 /* Cartoon Theme */
-body.theme-cartoon { background: #fff9c4; font-family: 'Comic Sans MS', 'Chalkboard SE', cursive; }
+body.theme-cartoon { background: #fff9c4; font-family: 'Fredoka', 'Nunito', 'Segoe UI', Roboto, sans-serif; }
 body.theme-cartoon .sidebar { background: #ffecb3; border-color: #ff8f00; border-width: 3px; border-style: solid; border-radius: 0; }
 body.theme-cartoon .chat-area { background: #e1f5fe; background-image: url("data:image/svg+xml,%3Csvg width='60' height='60' xmlns='http://www.w3.org/2000/svg'%3E%3Ccircle cx='30' cy='30' r='2' fill='%2390caf9' opacity='0.3'/%3E%3C/svg%3E"); }
 body.theme-cartoon .chat-header { background: #ff8f00; color: #fff; border: none; border-radius: 0; }
