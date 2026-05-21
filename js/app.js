@@ -1193,7 +1193,7 @@
         }).join('');
 
         var inputArea = document.getElementById('messageInputArea');
-        inputArea.parentNode.insertBefore(picker, inputArea);
+        inputArea.insertBefore(picker, inputArea.firstChild);
 
         picker.querySelectorAll('.emoji-item').forEach(function(item) {
             item.addEventListener('click', function() {
@@ -1202,6 +1202,8 @@
                 input.focus();
             });
         });
+
+        picker.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 
         // Close picker when clicking outside
         setTimeout(function() {
