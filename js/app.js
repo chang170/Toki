@@ -480,8 +480,9 @@
             '<button class="ctx-btn" id="cancelDelete">Cancel</button>';
 
         menu.style.position = 'fixed';
-        menu.style.left = (e.clientX || e.touches[0].clientX) + 'px';
-        menu.style.top = (e.clientY || e.touches[0].clientY) + 'px';
+        menu.style.left = '50%';
+        menu.style.top = '50%';
+        menu.style.transform = 'translate(-50%, -50%)';
         document.body.appendChild(menu);
 
         document.getElementById('deleteForMe').addEventListener('click', function() {
