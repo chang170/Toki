@@ -307,6 +307,17 @@
             });
         }
 
+        // Reconnect to peer if not connected
+        if (peers === 0) {
+            if (chat.directPeer) {
+                console.log('Reconnecting to direct peer:', chat.directPeer);
+                PeerManager.connectToPeer(chat.directPeer, roomCode);
+            } else if (chat.creatorPeerId && chat.creatorPeerId !== account.peerId) {
+                console.log('Reconnecting to group creator:', chat.creatorPeerId);
+                PeerManager.connectToPeer(chat.creatorPeerId, roomCode);
+            }
+        }
+
         document.getElementById('messageInputArea').hidden = false;
         renderMessages(roomCode);
         renderChatList();
