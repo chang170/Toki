@@ -382,8 +382,8 @@ body.theme-cartoon .sidebar-actions button { border: 2px solid #ff8f00; backgrou
 .emoji-picker {
     background: #fff; border: 1px solid #dfe6e9; border-radius: 8px;
     padding: 0.5rem; display: flex; flex-wrap: wrap; gap: 0.3rem;
-    max-width: 300px; box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-    margin: 0 0.5rem 0.5rem;
+    width: 100%; box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    margin-bottom: 0.5rem;
 }
 .emoji-item {
     font-size: 1.5rem; cursor: pointer; padding: 0.3rem;
