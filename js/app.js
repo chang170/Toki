@@ -11,6 +11,8 @@
 
     var currentRoom = null;
     var account = null;
+    var unreadCounts = {};
+    var processedMsgIds = {};
 
     // Check if already logged in
     account = Storage.getAccount();
@@ -522,8 +524,6 @@
 
     // Handle incoming messages
     // Unread message tracking
-    var unreadCounts = {};
-    var processedMsgIds = {};
 
     function handleIncomingMessage(data) {
         if (data.type === 'message' && data.roomCode) {
