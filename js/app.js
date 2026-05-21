@@ -101,6 +101,39 @@
         Presence.onUsersChanged = renderOnlineUsers;
         Presence.goOnline(account.peerId, account.username);
 
+        // Check for pending invites and actions
+        Presence.checkInvites(account.peerId, function(items) {
+            items.forEach(function(item) {
+                if (item.type === 'invite') {
+                    handleInvite(item);
+                } else if (item.type === 'delete') {
+                    // Handle offline delete
+                    if (item.msgId && item.roomCode) {
+                        var msgs = Storage.getMessages(item.roomCode);
+                        for (var i = 0; i < msgs.length; i++) {
+                            if (msgs[i].msgId === item.msgId) {
+                                msgs[i].deleted = true;
+                                msgs[i].text = '';
+                                msgs[i].media = null;
+                                msgs[i].location = null;
+                                break;
+                            }
+                        }
+                        localStorage.setItem('messenger_msgs_' + item.roomCode, JSON.stringify(msgs));
+                    }
+                } else if (item.type === 'deleteGroup') {
+                    // Handle offline group deletion
+                    if (item.roomCode) {
+                        var chats = Storage.getChats().filter(function(c) { return c.roomCode !== item.roomCode; });
+                        Storage.saveChats(chats);
+                        localStorage.removeItem('messenger_msgs_' + item.roomCode);
+                    }
+                }
+            });
+            if (currentRoom) renderMessages(currentRoom);
+            renderChatList();
+        });
+
         renderChatList();
     }
 
@@ -311,7 +344,7 @@
             var dotClass = user.online ? 'online-dot' : 'online-dot offline-dot';
             var lastSeenText = '';
             if (!user.online && user.showLastSeen !== false) {
-                lastSeenText = '<span class="last-seen-text">' + formatLastSeen(user.lastSeen) + '</span>';
+                lastSeenText = '<span class="last-seen-text"> &nbsp;-&nbsp; ' + formatLastSeen(user.lastSeen) + '</span>';
             }
             html += '<div class="online-user' + (user.online ? '' : ' offline') + '" data-peer="' + escapeHtml(user.peerId) + '" data-name="' + escapeHtml(user.username) + '">' +
                 '<span class="' + dotClass + '"></span>' +
@@ -450,6 +483,22 @@
         if (document.getElementById('deleteGroupBtn')) {
             document.getElementById('deleteGroupBtn').addEventListener('click', function() {
                 if (!confirm('Delete this chat? This cannot be undone.')) return;
+
+                // Notify other members (online via P2P, offline via Firebase)
+                var deleteGroupData = {
+                    type: 'deleteGroup',
+                    roomCode: roomCode,
+                    sender: account.peerId,
+                    senderName: account.username,
+                    timestamp: Date.now()
+                };
+                PeerManager.sendMessage(roomCode, deleteGroupData);
+
+                // Send to direct peer or group members via Firebase
+                if (chat.directPeer) {
+                    Presence.sendInvite(chat.directPeer, deleteGroupData);
+                }
+
                 var chats = Storage.getChats().filter(function(c) { return c.roomCode !== roomCode; });
                 Storage.saveChats(chats);
                 localStorage.removeItem('messenger_msgs_' + roomCode);
@@ -625,13 +674,23 @@
         msgs[msgIdx].location = null;
         localStorage.setItem('messenger_msgs_' + currentRoom, JSON.stringify(msgs));
 
-        // Send delete signal to peers
-        PeerManager.sendMessage(currentRoom, {
+        var deleteData = {
             type: 'delete',
             msgId: msg.msgId,
             roomCode: currentRoom,
-            sender: account.peerId
-        });
+            sender: account.peerId,
+            timestamp: Date.now()
+        };
+
+        // Send delete signal to online peers
+        PeerManager.sendMessage(currentRoom, deleteData);
+
+        // Store in Firebase for offline peers
+        var chats = Storage.getChats();
+        var chat = chats.find(function(c) { return c.roomCode === currentRoom; });
+        if (chat && chat.directPeer) {
+            Presence.sendInvite(chat.directPeer, deleteData);
+        }
 
         renderMessages(currentRoom);
     }
@@ -694,13 +753,16 @@
                         groupName: groupName,
                         sender: account.peerId,
                         senderName: account.username,
-                        invitedPeer: peerId
+                        invitedPeer: peerId,
+                        timestamp: Date.now()
                     };
-                    // Send through the invite-specific connection
+                    // Send through P2P connection (if online)
                     var conns = PeerManager.connections['invite-' + peerId] || [];
                     conns.forEach(function(conn) {
                         if (conn.open) conn.send(inviteData);
                     });
+                    // Also store in Firebase (for offline delivery)
+                    Presence.sendInvite(peerId, inviteData);
                 });
             }, 3000);
 
@@ -1103,6 +1165,21 @@
             if (data.invitedPeer === account.peerId || !data.invitedPeer) {
                 handleInvite(data);
             }
+        } else if (data.type === 'deleteGroup') {
+            // Handle group deletion from creator
+            if (data.roomCode) {
+                var chats = Storage.getChats().filter(function(c) { return c.roomCode !== data.roomCode; });
+                Storage.saveChats(chats);
+                localStorage.removeItem('messenger_msgs_' + data.roomCode);
+                if (currentRoom === data.roomCode) {
+                    currentRoom = null;
+                    document.getElementById('chatHeader').innerHTML = '<span class="chat-title">Select or start a chat</span>';
+                    document.getElementById('messages').innerHTML = '';
+                    document.getElementById('messageInputArea').hidden = true;
+                }
+                renderChatList();
+                alert(data.senderName + ' deleted the group.');
+            }
         } else if (data.type === 'delete') {
             // Handle delete for everyone
             if (data.msgId && data.roomCode) {
@@ -1175,11 +1252,11 @@
         var now = Date.now();
         var diff = now - timestamp;
         var mins = Math.floor(diff / 60000);
-        if (mins < 1) return 'just now';
-        if (mins < 60) return mins + 'm ago';
+        if (mins < 2) return 'last seen just now';
+        if (mins < 60) return 'last seen ' + mins + 'm ago';
         var hours = Math.floor(mins / 60);
-        if (hours < 24) return hours + 'h ago';
-        return Math.floor(hours / 24) + 'd ago';
+        if (hours < 24) return 'last seen ' + hours + 'h ago';
+        return 'last seen ' + Math.floor(hours / 24) + 'd ago';
     }
 
     function formatTime(timestamp) {

@@ -66,9 +66,14 @@ var Presence = {
                         var user = data[key];
                         // Consider online if seen in last 30 seconds
                         if (now - user.lastSeen < 30000) {
+                            user.online = true;
+                            users.push(user);
+                        } else if (now - user.lastSeen < 86400000) {
+                            // Seen in last 24 hours - show as offline with last seen
+                            user.online = false;
                             users.push(user);
                         } else {
-                            // Clean up stale entries
+                            // Clean up stale entries older than 24 hours
                             self.delete(key);
                         }
                     }
@@ -90,6 +95,43 @@ var Presence = {
     delete: function(key) {
         var xhr = new XMLHttpRequest();
         xhr.open('DELETE', this.dbUrl + '/presence/' + key + '.json', true);
+        xhr.send();
+    },
+
+    // Store a pending invite in Firebase
+    sendInvite: function(targetPeerId, inviteData) {
+        var key = targetPeerId.replace(/[.#$\[\]\/]/g, '_');
+        var xhr = new XMLHttpRequest();
+        var id = Date.now() + '_' + Math.random().toString(36).substr(2, 5);
+        xhr.open('PUT', this.dbUrl + '/invites/' + key + '/' + id + '.json', true);
+        xhr.setRequestHeader('Content-Type', 'application/json');
+        xhr.send(JSON.stringify(inviteData));
+    },
+
+    // Check for pending invites
+    checkInvites: function(myPeerId, callback) {
+        var self = this;
+        var key = myPeerId.replace(/[.#$\[\]\/]/g, '_');
+        var xhr = new XMLHttpRequest();
+        xhr.open('GET', this.dbUrl + '/invites/' + key + '.json', true);
+        xhr.onload = function() {
+            if (xhr.status === 200) {
+                var data = JSON.parse(xhr.responseText);
+                if (data) {
+                    var invites = [];
+                    for (var id in data) {
+                        invites.push(data[id]);
+                    }
+                    if (invites.length > 0 && callback) {
+                        callback(invites);
+                    }
+                    // Clear delivered invites
+                    var delXhr = new XMLHttpRequest();
+                    delXhr.open('DELETE', self.dbUrl + '/invites/' + key + '.json', true);
+                    delXhr.send();
+                }
+            }
+        };
         xhr.send();
     }
 };
