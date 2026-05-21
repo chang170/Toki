@@ -286,10 +286,14 @@
         delete unreadCounts[roomCode];
         updateTitleBadge();
 
+        var chats = Storage.getChats();
+        var chat = chats.find(function(c) { return c.roomCode === roomCode; });
+        if (!chat) return;
+
         // Send read receipts for unread messages in this chat
-        var msgs = Storage.getMessages(roomCode);
+        var msgs = Storage.getMessages(roomCode) || [];
         msgs.forEach(function(msg) {
-            if (msg.sender !== account.peerId && msg.msgId && !msg.readReceiptSent) {
+            if (msg && msg.sender !== account.peerId && msg.msgId && !msg.readReceiptSent) {
                 PeerManager.sendMessage(roomCode, {
                     type: 'receipt',
                     receiptType: 'read',
@@ -299,10 +303,6 @@
                 });
             }
         });
-
-        var chats = Storage.getChats();
-        var chat = chats.find(function(c) { return c.roomCode === roomCode; });
-        if (!chat) return;
 
         // Update header
         var peers = PeerManager.getConnectedPeers(roomCode);
