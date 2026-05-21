@@ -219,15 +219,16 @@
 
     function startDirectChat(peerId, name) {
         console.log('startDirectChat called with:', peerId, name);
+        
+        // Generate a deterministic room code from both peer IDs (same regardless of who initiates)
+        var ids = [account.peerId, peerId].sort();
+        var roomCode = 'DM.' + ids[0] + '.' + ids[1];
+
         // Create or find existing direct chat with this user
         var chats = Storage.getChats();
-        var existing = chats.find(function(c) { return c.directPeer === peerId; });
+        var existing = chats.find(function(c) { return c.roomCode === roomCode; });
 
-        var roomCode;
-        if (existing) {
-            roomCode = existing.roomCode;
-        } else {
-            roomCode = CryptoUtil.generateRoomCode(account.peerId);
+        if (!existing) {
             var chat = {
                 roomCode: roomCode,
                 name: name,
