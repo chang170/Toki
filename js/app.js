@@ -444,9 +444,19 @@
     // Handle incoming messages
     // Unread message tracking
     var unreadCounts = {};
+    var processedMsgIds = {};
 
     function handleIncomingMessage(data) {
         if (data.type === 'message' && data.roomCode) {
+            // Only process if it has content
+            if (!data.sender || (!data.text && !data.media)) return;
+
+            // Deduplicate - skip if we already processed this message
+            if (data.msgId) {
+                if (processedMsgIds[data.msgId]) return;
+                processedMsgIds[data.msgId] = true;
+            }
+
             Storage.saveMessage(data.roomCode, data);
 
             // Send delivery receipt
