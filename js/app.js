@@ -221,7 +221,7 @@
         console.log('startDirectChat called with:', peerId, name);
         // Create or find existing direct chat with this user
         var chats = Storage.getChats();
-        var existing = chats.find(function(c) { return c.creatorPeerId === peerId || (c.directPeer === peerId); });
+        var existing = chats.find(function(c) { return c.directPeer === peerId; });
 
         var roomCode;
         if (existing) {
@@ -242,7 +242,7 @@
         renderChatList();
         selectChat(roomCode);
 
-        // Connect to the peer
+        // Always try to connect
         console.log('Connecting to peer:', peerId, 'room:', roomCode);
         PeerManager.connectToPeer(peerId, roomCode);
     }
