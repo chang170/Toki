@@ -408,7 +408,10 @@
             var cls = isMine ? 'msg msg-sent' : 'msg msg-received';
             html += '<div class="' + cls + '">';
             if (!isMine) html += '<div class="msg-sender">' + escapeHtml(msg.senderName || 'Unknown') + '</div>';
-            if (msg.media) {
+            if (msg.location) {
+                var mapLink = 'https://www.google.com/maps?q=' + msg.location.lat + ',' + msg.location.lng;
+                html += '<div class="msg-location"><a href="' + mapLink + '" target="_blank" style="color:#667eea;text-decoration:none;">📍 ' + (msg.location.live ? 'Live location' : 'Location') + ' (' + msg.location.lat.toFixed(4) + ', ' + msg.location.lng.toFixed(4) + ')</a></div>';
+            } else if (msg.media) {
                 if (msg.mediaType && msg.mediaType.startsWith('video')) {
                     html += '<div class="msg-media"><video src="' + msg.media + '" controls></video></div>';
                 } else {
@@ -543,6 +546,131 @@
         renderMessages(currentRoom);
         renderChatList();
     }
+
+    // Location sharing
+    var liveLocationInterval = null;
+    var liveLocationActive = false;
+
+    document.getElementById('locationBtn').addEventListener('click', function() {
+        if (liveLocationActive) {
+            stopLiveLocation();
+        } else {
+            showLocationMenu();
+        }
+    });
+
+    function showLocationMenu() {
+        var choice = confirm('Share live location?\n\nOK = Live location (updates while tab is open)\nCancel = Send current location once');
+        if (choice) {
+            startLiveLocation();
+        } else {
+            sendCurrentLocation();
+        }
+    }
+
+    function sendCurrentLocation() {
+        if (!navigator.geolocation) { alert('Geolocation not supported.'); return; }
+        navigator.geolocation.getCurrentPosition(function(pos) {
+            var lat = pos.coords.latitude;
+            var lng = pos.coords.longitude;
+            var mapUrl = 'https://www.google.com/maps?q=' + lat + ',' + lng;
+            var msg = {
+                type: 'message',
+                roomCode: currentRoom,
+                sender: account.peerId,
+                senderName: account.username,
+                text: '📍 Location: ' + lat.toFixed(6) + ', ' + lng.toFixed(6) + '\n' + mapUrl,
+                location: { lat: lat, lng: lng },
+                msgId: Date.now() + '-' + Math.random().toString(36).substr(2, 5),
+                delivered: false,
+                read: false,
+                timestamp: Date.now()
+            };
+            Storage.saveMessage(currentRoom, msg);
+            PeerManager.sendMessage(currentRoom, msg);
+            renderMessages(currentRoom);
+            renderChatList();
+        }, function(err) {
+            alert('Could not get location: ' + err.message);
+        }, { enableHighAccuracy: true });
+    }
+
+    function startLiveLocation() {
+        if (!navigator.geolocation) { alert('Geolocation not supported.'); return; }
+        liveLocationActive = true;
+        document.getElementById('locationBtn').textContent = '📍✕';
+        document.getElementById('locationBtn').title = 'Stop live location';
+
+        // Send immediately
+        sendLocationUpdate();
+
+        // Update every 10 seconds
+        liveLocationInterval = setInterval(function() {
+            if (!document.hidden) {
+                sendLocationUpdate();
+            }
+        }, 10000);
+    }
+
+    function stopLiveLocation() {
+        liveLocationActive = false;
+        if (liveLocationInterval) {
+            clearInterval(liveLocationInterval);
+            liveLocationInterval = null;
+        }
+        document.getElementById('locationBtn').textContent = '📍';
+        document.getElementById('locationBtn').title = 'Share location';
+
+        // Send stop message
+        if (currentRoom) {
+            var msg = {
+                type: 'message',
+                roomCode: currentRoom,
+                sender: account.peerId,
+                senderName: account.username,
+                text: '📍 Live location ended',
+                msgId: Date.now() + '-' + Math.random().toString(36).substr(2, 5),
+                delivered: false,
+                read: false,
+                timestamp: Date.now()
+            };
+            Storage.saveMessage(currentRoom, msg);
+            PeerManager.sendMessage(currentRoom, msg);
+            renderMessages(currentRoom);
+            renderChatList();
+        }
+    }
+
+    function sendLocationUpdate() {
+        if (!currentRoom || !liveLocationActive) return;
+        navigator.geolocation.getCurrentPosition(function(pos) {
+            var lat = pos.coords.latitude;
+            var lng = pos.coords.longitude;
+            var mapUrl = 'https://www.google.com/maps?q=' + lat + ',' + lng;
+            var msg = {
+                type: 'message',
+                roomCode: currentRoom,
+                sender: account.peerId,
+                senderName: account.username,
+                text: '📍 Live location: ' + lat.toFixed(6) + ', ' + lng.toFixed(6) + '\n' + mapUrl,
+                location: { lat: lat, lng: lng, live: true },
+                msgId: Date.now() + '-' + Math.random().toString(36).substr(2, 5),
+                delivered: false,
+                read: false,
+                timestamp: Date.now()
+            };
+            Storage.saveMessage(currentRoom, msg);
+            PeerManager.sendMessage(currentRoom, msg);
+            renderMessages(currentRoom);
+        }, function() {}, { enableHighAccuracy: true });
+    }
+
+    // Resume live location when tab becomes visible
+    document.addEventListener('visibilitychange', function() {
+        if (!document.hidden && liveLocationActive) {
+            sendLocationUpdate();
+        }
+    });
 
     // Handle incoming messages
     // Unread message tracking
