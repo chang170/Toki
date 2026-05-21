@@ -700,79 +700,102 @@
         var existing = document.getElementById('inviteModal');
         if (existing) existing.remove();
 
-        // Get online users
-        var onlineUsers = [];
-        document.querySelectorAll('.online-user').forEach(function(el) {
-            onlineUsers.push({ peerId: el.dataset.peer, name: el.dataset.name });
-        });
+        // Fetch all users from Firebase (online + offline)
+        var xhr = new XMLHttpRequest();
+        xhr.open('GET', Presence.dbUrl + '/presence.json', true);
+        xhr.onload = function() {
+            var allUsers = [];
+            if (xhr.status === 200) {
+                var data = JSON.parse(xhr.responseText);
+                if (data) {
+                    for (var key in data) {
+                        var user = data[key];
+                        if (user.peerId !== account.peerId) {
+                            user.online = (Date.now() - user.lastSeen) < 30000;
+                            allUsers.push(user);
+                        }
+                    }
+                }
+            }
 
-        if (onlineUsers.length === 0) {
-            alert('No other users online to invite.');
-            return;
-        }
+            if (allUsers.length === 0) {
+                alert('No other users found.');
+                return;
+            }
 
-        var modal = document.createElement('div');
-        modal.id = 'inviteModal';
-        modal.className = 'modal';
-        modal.innerHTML =
-            '<div class="modal-content">' +
-            '<h2>Invite to ' + escapeHtml(groupName) + '</h2>' +
-            '<p style="font-size:0.85rem;color:#636e72;margin-bottom:1rem;">Select users to invite:</p>' +
-            '<div id="inviteUserList">' +
-            onlineUsers.map(function(u) {
-                return '<label style="display:flex;align-items:center;gap:0.5rem;padding:0.5rem 0;font-size:1rem;cursor:pointer;">' +
-                    '<input type="checkbox" class="invite-check" data-peer="' + u.peerId + '" data-name="' + escapeHtml(u.name) + '"> ' +
-                    escapeHtml(u.name) + '</label>';
-            }).join('') +
-            '</div>' +
-            '<div style="margin-top:1rem;display:flex;gap:0.5rem;">' +
-            '<button id="sendInviteBtn" style="flex:1;">Send Invite</button>' +
-            '<button id="cancelInviteBtn" class="modal-close" style="position:static;font-size:1rem;padding:0.6rem 1.2rem;">Cancel</button>' +
-            '</div></div>';
-
-        document.body.appendChild(modal);
-
-        document.getElementById('sendInviteBtn').addEventListener('click', function() {
-            var selected = document.querySelectorAll('.invite-check:checked');
-            if (selected.length === 0) { alert('Select at least one user.'); return; }
-
-            var peers = [];
-            selected.forEach(function(cb) { peers.push(cb.dataset.peer); });
-
-            // Connect to all selected peers first
-            peers.forEach(function(peerId) {
-                PeerManager.connectToPeer(peerId, 'invite-' + peerId);
+            // Sort: online first
+            allUsers.sort(function(a, b) {
+                if (a.online && !b.online) return -1;
+                if (!a.online && b.online) return 1;
+                return a.username.localeCompare(b.username);
             });
 
-            // Send invites after connections establish
-            setTimeout(function() {
+            var modal = document.createElement('div');
+            modal.id = 'inviteModal';
+            modal.className = 'modal';
+            modal.innerHTML =
+                '<div class="modal-content">' +
+                '<h2>Invite to ' + escapeHtml(groupName) + '</h2>' +
+                '<p style="font-size:0.85rem;color:#636e72;margin-bottom:1rem;">Select users to invite:</p>' +
+                '<div id="inviteUserList" style="max-height:300px;overflow-y:auto;">' +
+                allUsers.map(function(u) {
+                    var statusDot = u.online ? '<span style="color:#00b894;">●</span>' : '<span style="color:#b2bec3;">●</span>';
+                    var statusText = u.online ? '' : ' <span style="font-size:0.7rem;color:#b2bec3;">(offline)</span>';
+                    return '<label style="display:flex;align-items:center;gap:0.5rem;padding:0.5rem 0;font-size:1rem;cursor:pointer;">' +
+                        '<input type="checkbox" class="invite-check" data-peer="' + u.peerId + '" data-name="' + escapeHtml(u.username) + '"> ' +
+                        statusDot + ' ' + escapeHtml(u.username) + statusText + '</label>';
+                }).join('') +
+                '</div>' +
+                '<div style="margin-top:1rem;display:flex;gap:0.5rem;">' +
+                '<button id="sendInviteBtn" style="flex:1;">Send Invite</button>' +
+                '<button id="cancelInviteBtn" class="modal-close" style="position:static;font-size:1rem;padding:0.6rem 1.2rem;">Cancel</button>' +
+                '</div></div>';
+
+            document.body.appendChild(modal);
+
+            document.getElementById('sendInviteBtn').addEventListener('click', function() {
+                var selected = document.querySelectorAll('.invite-check:checked');
+                if (selected.length === 0) { alert('Select at least one user.'); return; }
+
+                var peers = [];
+                selected.forEach(function(cb) { peers.push(cb.dataset.peer); });
+
+                // Connect to all selected peers first
                 peers.forEach(function(peerId) {
-                    var inviteData = {
-                        type: 'invite',
-                        roomCode: roomCode,
-                        groupName: groupName,
-                        sender: account.peerId,
-                        senderName: account.username,
-                        invitedPeer: peerId,
-                        timestamp: Date.now()
-                    };
-                    // Send through P2P connection (if online)
-                    var conns = PeerManager.connections['invite-' + peerId] || [];
-                    conns.forEach(function(conn) {
-                        if (conn.open) conn.send(inviteData);
-                    });
-                    // Also store in Firebase (for offline delivery)
-                    Presence.sendInvite(peerId, inviteData);
+                    PeerManager.connectToPeer(peerId, 'invite-' + peerId);
                 });
-            }, 3000);
 
-            modal.remove();
-            alert('Invite sent to ' + selected.length + ' user(s).');
-        });
+                // Send invites after connections establish
+                setTimeout(function() {
+                    peers.forEach(function(peerId) {
+                        var inviteData = {
+                            type: 'invite',
+                            roomCode: roomCode,
+                            groupName: groupName,
+                            sender: account.peerId,
+                            senderName: account.username,
+                            invitedPeer: peerId,
+                            timestamp: Date.now()
+                        };
+                        // Send through P2P connection (if online)
+                        var conns = PeerManager.connections['invite-' + peerId] || [];
+                        conns.forEach(function(conn) {
+                            if (conn.open) conn.send(inviteData);
+                        });
+                        // Also store in Firebase (for offline delivery)
+                        Presence.sendInvite(peerId, inviteData);
+                    });
+                }, 3000);
 
-        document.getElementById('cancelInviteBtn').addEventListener('click', function() {
-            modal.remove();
-        });
+                modal.remove();
+                alert('Invite sent to ' + selected.length + ' user(s). Offline users will receive it when they come online.');
+            });
+
+            document.getElementById('cancelInviteBtn').addEventListener('click', function() {
+                modal.remove();
+            });
+        };
+        xhr.send();
     }
 
     // Handle incoming invites
