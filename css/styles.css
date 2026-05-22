@@ -687,6 +687,12 @@ body.theme-elmwood .chat-item-time { color: #8fbc8f; }
     border-top: 1px solid #e0e0e0;
     background: #fff;
     padding: 0.5rem 0;
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    width: 320px;
+    z-index: 200;
+    box-shadow: 0 -2px 5px rgba(0,0,0,0.1);
 }
 .bottom-nav-btn {
     flex: 1; padding: 0.6rem; border: none; background: none;
@@ -695,8 +701,8 @@ body.theme-elmwood .chat-item-time { color: #8fbc8f; }
 .bottom-nav-btn.active { color: #667eea; }
 
 @media (max-width: 768px) {
-    .bottom-nav { position: fixed; bottom: 0; left: 0; right: 0; z-index: 60; box-shadow: 0 -2px 5px rgba(0,0,0,0.1); }
-    .sidebar { padding-bottom: 50px; }
+    .bottom-nav { width: 100%; }
+    .sidebar { padding-bottom: 60px; }
 }
 
 /* Call History */
