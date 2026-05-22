@@ -1387,39 +1387,64 @@
     function playCasinoSound() {
         try {
             var ctx = new (window.AudioContext || window.webkitAudioContext)();
-            // Ascending chime pattern (slot machine winner)
-            var notes = [523, 659, 784, 1047, 1319, 1568, 1047, 1319, 1568, 2093];
-            notes.forEach(function(freq, i) {
+            // Lottery winner fanfare - dramatic ascending with sustained celebration
+            var fanfare = [
+                {f: 392, t: 0, d: 0.3},
+                {f: 494, t: 0.15, d: 0.3},
+                {f: 587, t: 0.3, d: 0.3},
+                {f: 784, t: 0.45, d: 0.5},
+                {f: 988, t: 0.7, d: 0.6},
+                {f: 1175, t: 1.0, d: 0.8},
+                {f: 1568, t: 1.3, d: 1.0},
+            ];
+            fanfare.forEach(function(note) {
                 setTimeout(function() {
                     var osc = ctx.createOscillator();
                     var gain = ctx.createGain();
                     osc.connect(gain);
                     gain.connect(ctx.destination);
-                    osc.frequency.value = freq;
-                    osc.type = 'sine';
-                    gain.gain.setValueAtTime(0.2, ctx.currentTime);
-                    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.3);
+                    osc.frequency.value = note.f;
+                    osc.type = 'triangle';
+                    gain.gain.setValueAtTime(0.25, ctx.currentTime);
+                    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + note.d);
                     osc.start(ctx.currentTime);
-                    osc.stop(ctx.currentTime + 0.3);
-                }, i * 200);
+                    osc.stop(ctx.currentTime + note.d);
+                }, note.t * 1000);
             });
-            // Repeat the jingle
+            // Celebration shimmer
             setTimeout(function() {
-                notes.forEach(function(freq, i) {
-                    setTimeout(function() {
-                        var osc = ctx.createOscillator();
-                        var gain = ctx.createGain();
-                        osc.connect(gain);
-                        gain.connect(ctx.destination);
-                        osc.frequency.value = freq;
-                        osc.type = 'triangle';
-                        gain.gain.setValueAtTime(0.15, ctx.currentTime);
-                        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.25);
-                        osc.start(ctx.currentTime);
-                        osc.stop(ctx.currentTime + 0.25);
-                    }, i * 150);
+                for (var i = 0; i < 15; i++) {
+                    (function(delay) {
+                        setTimeout(function() {
+                            var osc = ctx.createOscillator();
+                            var gain = ctx.createGain();
+                            osc.connect(gain);
+                            gain.connect(ctx.destination);
+                            osc.frequency.value = 1000 + Math.random() * 2000;
+                            osc.type = 'sine';
+                            gain.gain.setValueAtTime(0.1, ctx.currentTime);
+                            gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.15);
+                            osc.start(ctx.currentTime);
+                            osc.stop(ctx.currentTime + 0.15);
+                        }, delay);
+                    })(i * 200 + Math.random() * 100);
+                }
+            }, 2000);
+            // Final big chord
+            setTimeout(function() {
+                [523, 659, 784, 1047].forEach(function(freq) {
+                    var osc = ctx.createOscillator();
+                    var gain = ctx.createGain();
+                    osc.connect(gain);
+                    gain.connect(ctx.destination);
+                    osc.frequency.value = freq;
+                    osc.type = 'triangle';
+                    gain.gain.setValueAtTime(0.2, ctx.currentTime);
+                    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 1.5);
+                    osc.start(ctx.currentTime);
+                    osc.stop(ctx.currentTime + 1.5);
                 });
-            }, 3000);
+            }, 5000);
         } catch(e) {}
     }
 
