@@ -14,6 +14,8 @@
         history.pushState(null, '', location.href);
         if (window.innerWidth <= 768 && document.querySelector('.sidebar.hidden')) {
             document.querySelector('.sidebar').classList.remove('hidden');
+            document.getElementById('messageInputArea').hidden = true;
+            document.getElementById('navInputArea').style.display = '';
         }
     });
     history.pushState(null, '', location.href);
