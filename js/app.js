@@ -203,6 +203,22 @@
         });
     });
 
+    document.querySelectorAll('.nav-input-btn').forEach(function(btn) {
+        btn.addEventListener('click', function() {
+            document.querySelectorAll('.nav-input-btn').forEach(function(b) { b.classList.remove('active'); });
+            btn.classList.add('active');
+            var view = btn.dataset.view;
+            if (view === 'chats') {
+                document.getElementById('chatList').style.display = '';
+                document.getElementById('callHistory').style.display = 'none';
+            } else {
+                document.getElementById('chatList').style.display = 'none';
+                document.getElementById('callHistory').style.display = '';
+                renderCallHistory();
+            }
+        });
+    });
+
     function logCall(peerName, type, duration) {
         callLog.push({
             name: peerName,
@@ -627,6 +643,8 @@
         if (document.getElementById('backBtn')) {
             document.getElementById('backBtn').addEventListener('click', function() {
                 document.querySelector('.sidebar').classList.remove('hidden');
+                document.getElementById('messageInputArea').hidden = true;
+                document.getElementById('navInputArea').style.display = '';
             });
         }
 
@@ -655,6 +673,7 @@
         }
 
         document.getElementById('messageInputArea').hidden = false;
+        document.getElementById('navInputArea').style.display = 'none';
         renderMessages(roomCode);
         renderChatList();
     }
@@ -2026,6 +2045,12 @@
     }
 
     function endCallLocal() {
+        if (callStartTime && callLog.length > 0) {
+            var duration = Math.floor((Date.now() - callStartTime) / 1000);
+            callLog[callLog.length - 1].duration = duration;
+            localStorage.setItem('toki_calllog', JSON.stringify(callLog));
+            callStartTime = null;
+        }
         if (currentCall) { currentCall.close(); currentCall = null; }
         if (localStream) {
             localStream.getTracks().forEach(function(t) { t.stop(); });
