@@ -284,35 +284,29 @@ body.theme-basketball .chat-area::after {
     position: absolute;
     top: 40%;
     font-size: 7.5rem;
-    animation: basketballDunk 4s ease-in-out infinite;
+    animation: basketballDunk 6s ease-in-out infinite;
     opacity: 0.25;
     pointer-events: none;
     z-index: 0;
-    left: 50%;
-    margin-left: -3.75rem;
 }
 body.theme-basketball .chat-area::before {
     content: '🏀';
     position: absolute;
-    top: 25%;
-    left: 30%;
-    font-size: 4rem;
-    animation: basketballBounce 2s ease-in-out infinite 1s;
+    top: 55%;
+    font-size: 7.5rem;
+    animation: basketballDunk 8s ease-in-out infinite 2s;
     opacity: 0.15;
     pointer-events: none;
     z-index: 0;
 }
 @keyframes basketballDunk {
-    0% { transform: translateY(0) translateX(-30px); }
-    20% { transform: translateY(-80px) translateX(-15px); }
-    40% { transform: translateY(-120px) translateX(0); }
-    60% { transform: translateY(-80px) translateX(15px); }
-    80% { transform: translateY(-20px) translateX(30px); }
-    100% { transform: translateY(0) translateX(-30px); }
-}
-@keyframes basketballBounce {
-    0%, 100% { transform: translateY(0); }
-    50% { transform: translateY(-40px); }
+    0% { left: -100px; transform: translateY(0); }
+    20% { transform: translateY(-80px); }
+    40% { left: 30%; transform: translateY(0); }
+    50% { left: 45%; transform: translateY(-120px); }
+    60% { left: 55%; transform: translateY(-60px); }
+    80% { transform: translateY(0); }
+    100% { left: 110%; transform: translateY(0); }
 }
 body.theme-basketball .messages { position: relative; z-index: 1; }
 body.theme-basketball .chat-header { background: #c0392b; color: #fff; border: none; }
