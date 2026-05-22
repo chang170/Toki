@@ -184,6 +184,61 @@
         renderChatList();
     }
 
+    // Bottom nav (Chats / Calls)
+    var callLog = JSON.parse(localStorage.getItem('toki_calllog') || '[]');
+
+    document.querySelectorAll('.bottom-nav-btn').forEach(function(btn) {
+        btn.addEventListener('click', function() {
+            document.querySelectorAll('.bottom-nav-btn').forEach(function(b) { b.classList.remove('active'); });
+            btn.classList.add('active');
+            var view = btn.dataset.view;
+            if (view === 'chats') {
+                document.getElementById('chatList').style.display = '';
+                document.getElementById('callHistory').style.display = 'none';
+            } else {
+                document.getElementById('chatList').style.display = 'none';
+                document.getElementById('callHistory').style.display = '';
+                renderCallHistory();
+            }
+        });
+    });
+
+    function logCall(peerName, type, duration) {
+        callLog.push({
+            name: peerName,
+            type: type, // 'outgoing', 'incoming', 'missed'
+            time: Date.now(),
+            duration: duration || 0
+        });
+        if (callLog.length > 50) callLog = callLog.slice(-50);
+        localStorage.setItem('toki_calllog', JSON.stringify(callLog));
+    }
+
+    function renderCallHistory() {
+        var html = '';
+        if (callLog.length === 0) {
+            html = '<p style="padding:1.5rem;text-align:center;color:#636e72;">No call history yet</p>';
+        } else {
+            var sorted = callLog.slice().reverse();
+            sorted.forEach(function(call) {
+                var icon, iconClass;
+                if (call.type === 'missed') { icon = '📵'; iconClass = 'missed'; }
+                else if (call.type === 'outgoing') { icon = '📤'; iconClass = 'outgoing'; }
+                else { icon = '📥'; iconClass = 'incoming'; }
+
+                var timeStr = new Date(call.time).toLocaleString();
+                var durStr = call.duration > 0 ? ' (' + Math.floor(call.duration / 60) + ':' + ('0' + (call.duration % 60)).slice(-2) + ')' : '';
+
+                html += '<div class="call-item">' +
+                    '<span class="call-item-icon ' + iconClass + '">' + icon + '</span>' +
+                    '<div class="call-item-info"><div class="call-item-name">' + call.name + '</div>' +
+                    '<div class="call-item-time">' + timeStr + durStr + '</div></div>' +
+                    '<button class="call-item-action">📞</button></div>';
+            });
+        }
+        document.getElementById('callHistory').innerHTML = html;
+    }
+
     // New Chat Modal
     document.getElementById('newChatBtn').addEventListener('click', function() {
         document.getElementById('newChatModal').hidden = false;
@@ -526,6 +581,7 @@
             '<span class="chat-title">' + escapeHtml(chat.name) + ' <small style="color:#636e72;">(' + roomCode.split('.')[0] + ')</small>' + inviteBtn + deleteBtn + '</span>' +
             '<button id="videoCallBtn" class="call-btn" title="Video Call">📹</button>' +
             '<button id="audioCallBtn" class="call-btn" title="Audio Call">📞</button>' +
+            '<button id="chatMenuBtn" class="call-btn" title="More options">⋮</button>' +
             '<span class="chat-status">' + peers + ' connected</span>';
 
         // Delete handler
@@ -570,6 +626,14 @@
         if (document.getElementById('backBtn')) {
             document.getElementById('backBtn').addEventListener('click', function() {
                 document.querySelector('.sidebar').classList.remove('hidden');
+            });
+        }
+
+        // Chat menu (three dots)
+        if (document.getElementById('chatMenuBtn')) {
+            document.getElementById('chatMenuBtn').addEventListener('click', function(e) {
+                e.stopPropagation();
+                showChatMenu(roomCode, chat);
             });
         }
 
@@ -802,6 +866,139 @@
         }
 
         renderMessages(currentRoom);
+    }
+
+    // Chat settings menu
+    function showChatMenu(roomCode, chat) {
+        var existing = document.getElementById('chatSettingsMenu');
+        if (existing) { existing.remove(); return; }
+
+        var menu = document.createElement('div');
+        menu.id = 'chatSettingsMenu';
+        menu.className = 'msg-context-menu';
+        menu.style.cssText = 'position:fixed;top:60px;right:20px;z-index:200;';
+        menu.innerHTML =
+            '<button class="ctx-btn" data-action="viewContact">👤 View Contact</button>' +
+            '<button class="ctx-btn" data-action="searchChat">🔍 Search</button>' +
+            '<button class="ctx-btn" data-action="mediaLinks">📁 Media, Links & Docs</button>' +
+            '<button class="ctx-btn" data-action="muteNotif">🔇 Mute Notifications</button>' +
+            '<button class="ctx-btn" data-action="disappearing">⏱ Disappearing Messages</button>' +
+            '<button class="ctx-btn" data-action="block">🚫 Block</button>' +
+            '<button class="ctx-btn" data-action="exportChat">📤 Export Chat</button>';
+
+        document.body.appendChild(menu);
+
+        menu.querySelectorAll('.ctx-btn').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                var action = btn.dataset.action;
+                menu.remove();
+                handleChatMenuAction(action, roomCode, chat);
+            });
+        });
+
+        setTimeout(function() {
+            document.addEventListener('click', function closeMenu(e) {
+                if (menu.parentNode) menu.remove();
+                document.removeEventListener('click', closeMenu);
+            });
+        }, 100);
+    }
+
+    function handleChatMenuAction(action, roomCode, chat) {
+        var msgs = Storage.getMessages(roomCode);
+
+        if (action === 'viewContact') {
+            var info = 'Name: ' + chat.name + '\n';
+            if (chat.directPeer) info += 'Peer ID: ' + chat.directPeer + '\n';
+            if (chat.isGroup) info += 'Type: Group Chat\n';
+            info += 'Created: ' + (chat.created || chat.joined || 'Unknown');
+            alert(info);
+
+        } else if (action === 'searchChat') {
+            var term = prompt('Search messages:');
+            if (!term) return;
+            var results = msgs.filter(function(m) {
+                return m.text && m.text.toLowerCase().indexOf(term.toLowerCase()) !== -1;
+            });
+            if (results.length === 0) {
+                alert('No messages found containing "' + term + '"');
+            } else {
+                var display = results.slice(0, 10).map(function(m) {
+                    return '[' + new Date(m.timestamp).toLocaleString() + '] ' + (m.senderName || '') + ': ' + m.text;
+                }).join('\n\n');
+                alert('Found ' + results.length + ' message(s):\n\n' + display);
+            }
+
+        } else if (action === 'mediaLinks') {
+            var media = msgs.filter(function(m) { return m.media || (m.text && m.text.match(/https?:\/\//)); });
+            if (media.length === 0) {
+                alert('No media, links, or docs shared in this chat.');
+            } else {
+                var links = media.filter(function(m) { return m.text && m.text.match(/https?:\/\//); });
+                var images = media.filter(function(m) { return m.media; });
+                alert('Media: ' + images.length + ' image(s)/video(s)\nLinks: ' + links.length + ' link(s)');
+            }
+
+        } else if (action === 'muteNotif') {
+            var muted = localStorage.getItem('toki_muted_' + roomCode);
+            if (muted) {
+                localStorage.removeItem('toki_muted_' + roomCode);
+                alert('Notifications unmuted for this chat.');
+            } else {
+                localStorage.setItem('toki_muted_' + roomCode, 'true');
+                alert('Notifications muted for this chat.');
+            }
+
+        } else if (action === 'disappearing') {
+            var current = localStorage.getItem('toki_disappear_' + roomCode);
+            var choice = prompt('Set disappearing messages duration:\n\nEnter minutes (0 = off):', current || '0');
+            if (choice === null) return;
+            var mins = parseInt(choice);
+            if (mins > 0) {
+                localStorage.setItem('toki_disappear_' + roomCode, String(mins));
+                alert('Messages will disappear after ' + mins + ' minute(s).');
+            } else {
+                localStorage.removeItem('toki_disappear_' + roomCode);
+                alert('Disappearing messages turned off.');
+            }
+
+        } else if (action === 'block') {
+            if (!chat.directPeer) { alert('Can only block in direct messages.'); return; }
+            var blocked = JSON.parse(localStorage.getItem('toki_blocked') || '[]');
+            var isBlocked = blocked.indexOf(chat.directPeer) !== -1;
+            if (isBlocked) {
+                blocked = blocked.filter(function(p) { return p !== chat.directPeer; });
+                localStorage.setItem('toki_blocked', JSON.stringify(blocked));
+                alert(chat.name + ' has been unblocked.');
+            } else {
+                if (!confirm('Block ' + chat.name + '? You will not receive messages from them.')) return;
+                blocked.push(chat.directPeer);
+                localStorage.setItem('toki_blocked', JSON.stringify(blocked));
+                alert(chat.name + ' has been blocked.');
+            }
+
+        } else if (action === 'exportChat') {
+            var text = 'Chat Export: ' + chat.name + '\n';
+            text += 'Exported: ' + new Date().toLocaleString() + '\n';
+            text += '─'.repeat(40) + '\n\n';
+            msgs.forEach(function(m) {
+                if (m.deleted) return;
+                var time = new Date(m.timestamp).toLocaleString();
+                var sender = m.senderName || 'Unknown';
+                var content = m.text || (m.media ? '[Media]' : (m.animation ? '[Animation]' : (m.location ? '[Location]' : '')));
+                text += '[' + time + '] ' + sender + ': ' + content + '\n';
+            });
+
+            var blob = new Blob([text], { type: 'text/plain' });
+            var url = URL.createObjectURL(blob);
+            var a = document.createElement('a');
+            a.href = url;
+            a.download = 'chat_' + chat.name.replace(/[^a-zA-Z0-9]/g, '_') + '.txt';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
     }
 
     // Group invite with user picker
@@ -1629,11 +1826,16 @@
         }
     });
 
+    var callStartTime = null;
+
     function startCall(withVideo) {
         if (!currentRoom) return;
         var chats = Storage.getChats();
         var chat = chats.find(function(c) { return c.roomCode === currentRoom; });
         if (!chat) return;
+
+        callStartTime = Date.now();
+        logCall(chat.name, 'outgoing', 0);
 
         var constraints = { audio: true, video: withVideo };
         navigator.mediaDevices.getUserMedia(constraints).then(function(stream) {
@@ -1775,6 +1977,13 @@
     });
 
     function endCall() {
+        // Update call log with duration
+        if (callStartTime && callLog.length > 0) {
+            var duration = Math.floor((Date.now() - callStartTime) / 1000);
+            callLog[callLog.length - 1].duration = duration;
+            localStorage.setItem('toki_calllog', JSON.stringify(callLog));
+            callStartTime = null;
+        }
         if (currentCall) { currentCall.close(); currentCall = null; }
         if (localStream) {
             localStream.getTracks().forEach(function(t) { t.stop(); });
@@ -1798,6 +2007,10 @@
         if (data.type === 'message' && data.roomCode) {
             // Only process if it has content
             if (!data.sender || (!data.text && !data.media && !data.location && !data.animation)) return;
+
+            // Check if sender is blocked
+            var blocked = JSON.parse(localStorage.getItem('toki_blocked') || '[]');
+            if (blocked.indexOf(data.sender) !== -1) return;
 
             // Deduplicate - skip if we already processed this message
             if (data.msgId && !data.isLiveLocationUpdate) {
@@ -1945,7 +2158,8 @@
     function showSystemNotification(senderName, text, roomCode) {
         if (!('Notification' in window)) return;
         if (Notification.permission !== 'granted') return;
-        if (!document.hidden) return; // Only notify when tab is not focused
+        if (!document.hidden) return;
+        if (localStorage.getItem('toki_muted_' + roomCode)) return; // Muted
 
         var body = text || '📎 Media';
         if (body.length > 50) body = body.substring(0, 50) + '...';
