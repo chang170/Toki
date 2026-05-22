@@ -612,6 +612,13 @@
                 } else {
                     html += '<div class="msg-giftbox" data-gift-id="' + msg.msgId + '" data-anim="basketball">🏀<div class="giftbox-label">Tap to play!</div></div>';
                 }
+            } else if (msg.animation === 'redpacket') {
+                var rpOpened = openedGifts[msg.msgId];
+                if (rpOpened) {
+                    html += '<div class="msg-giftbox opened">🧧💰</div>';
+                } else {
+                    html += '<div class="msg-giftbox" data-gift-id="' + msg.msgId + '" data-anim="redpacket">🧧<div class="giftbox-label">Tap to open!</div></div>';
+                }
             } else if (msg.location) {
                 var mapLink = 'https://www.google.com/maps?q=' + msg.location.lat + ',' + msg.location.lng;
                 var mapImg = 'https://maps.googleapis.com/maps/api/staticmap?center=' + msg.location.lat + ',' + msg.location.lng + '&zoom=15&size=250x150&markers=color:red%7C' + msg.location.lat + ',' + msg.location.lng + '&key=';
@@ -649,6 +656,7 @@
         var container = document.getElementById('messages');
         container.innerHTML = html || '<p style="text-align:center;color:#636e72;margin-top:2rem;">No messages yet. Say hello!</p>';
         container.scrollTop = container.scrollHeight;
+        setTimeout(function() { container.scrollTop = container.scrollHeight; }, 100);
 
         // Attach context menu for delete (double-click/double-tap)
         container.querySelectorAll('.msg[data-msg-idx]').forEach(function(el) {
@@ -669,6 +677,9 @@
                 if (animType === 'basketball') {
                     box.innerHTML = '🏀';
                     showBasketballBounce(box);
+                } else if (animType === 'redpacket') {
+                    box.innerHTML = '🧧💰';
+                    showRedPacketRain(box);
                 } else {
                     box.innerHTML = '🎊';
                     showConfettiExplosion(box);
@@ -1232,7 +1243,8 @@
         picker.className = 'emoji-picker';
         picker.innerHTML =
             '<span class="emoji-item anim-choice" data-anim="giftbox" title="Gift Box Explosion">🎁</span>' +
-            '<span class="emoji-item anim-choice" data-anim="basketball" title="Basketball Bounce">🏀</span>';
+            '<span class="emoji-item anim-choice" data-anim="basketball" title="Basketball Bounce">🏀</span>' +
+            '<span class="emoji-item anim-choice" data-anim="redpacket" title="Red Packet Money Rain">🧧</span>';
 
         var inputArea = document.getElementById('messageInputArea');
         inputArea.insertBefore(picker, inputArea.firstChild);
@@ -1321,7 +1333,7 @@
         var screenW = window.innerWidth;
         var screenH = window.innerHeight;
 
-        for (var i = 0; i < 8; i++) {
+        for (var i = 0; i < 28; i++) {
             (function(idx) {
                 var ball = document.createElement('div');
                 ball.style.cssText = 'position:absolute;font-size:4rem;' +
@@ -1336,20 +1348,18 @@
                 var gravity = 0.5;
                 var bounce = 0.75;
                 var frame = 0;
-                var maxFrames = 180; // ~3 seconds at 60fps
+                var maxFrames = 480; // ~8 seconds at 60fps
 
                 function animate() {
                     vy += gravity;
                     x += vx;
                     y += vy;
 
-                    // Bounce off bottom
                     if (y > screenH - 60) {
                         y = screenH - 60;
                         vy = -vy * bounce;
                         playBounceSound();
                     }
-                    // Bounce off sides
                     if (x < 0 || x > screenW - 60) {
                         vx = -vx;
                         x = Math.max(0, Math.min(x, screenW - 60));
@@ -1367,11 +1377,96 @@
 
                 setTimeout(function() {
                     animate();
-                }, idx * 300);
+                }, idx * 200);
             })(i);
         }
 
-        setTimeout(function() { container.remove(); }, 4000);
+        setTimeout(function() { container.remove(); }, 9000);
+    }
+
+    function playCasinoSound() {
+        try {
+            var ctx = new (window.AudioContext || window.webkitAudioContext)();
+            // Ascending chime pattern (slot machine winner)
+            var notes = [523, 659, 784, 1047, 1319, 1568, 1047, 1319, 1568, 2093];
+            notes.forEach(function(freq, i) {
+                setTimeout(function() {
+                    var osc = ctx.createOscillator();
+                    var gain = ctx.createGain();
+                    osc.connect(gain);
+                    gain.connect(ctx.destination);
+                    osc.frequency.value = freq;
+                    osc.type = 'sine';
+                    gain.gain.setValueAtTime(0.2, ctx.currentTime);
+                    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.3);
+                    osc.start(ctx.currentTime);
+                    osc.stop(ctx.currentTime + 0.3);
+                }, i * 200);
+            });
+            // Repeat the jingle
+            setTimeout(function() {
+                notes.forEach(function(freq, i) {
+                    setTimeout(function() {
+                        var osc = ctx.createOscillator();
+                        var gain = ctx.createGain();
+                        osc.connect(gain);
+                        gain.connect(ctx.destination);
+                        osc.frequency.value = freq;
+                        osc.type = 'triangle';
+                        gain.gain.setValueAtTime(0.15, ctx.currentTime);
+                        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.25);
+                        osc.start(ctx.currentTime);
+                        osc.stop(ctx.currentTime + 0.25);
+                    }, i * 150);
+                });
+            }, 3000);
+        } catch(e) {}
+    }
+
+    function showRedPacketRain(element) {
+        playCasinoSound();
+        var container = document.createElement('div');
+        container.style.cssText = 'position:fixed;inset:0;pointer-events:none;z-index:9999;overflow:hidden;';
+        document.body.appendChild(container);
+
+        var screenW = window.innerWidth;
+        var items = [];
+        // 10 gold coins, 10 bitcoins, 10 ethereum, 20 dollar bills
+        for (var i = 0; i < 10; i++) items.push('🪙');
+        for (var i = 0; i < 10; i++) items.push('₿');
+        for (var i = 0; i < 10; i++) items.push('⟠');
+        for (var i = 0; i < 20; i++) items.push('💵');
+
+        // Drop items continuously over 8 seconds
+        items.forEach(function(emoji, idx) {
+            (function(em, delay) {
+                setTimeout(function() {
+                    var item = document.createElement('div');
+                    var x = Math.random() * (screenW - 40);
+                    var duration = 2 + Math.random() * 2;
+                    var isCrypto = (em === '₿' || em === '⟠');
+
+                    item.style.cssText = 'position:absolute;font-size:' + (isCrypto ? '2.5rem' : '3rem') + ';' +
+                        'left:' + x + 'px;top:-50px;' +
+                        'transition:all ' + duration + 's linear;opacity:1;';
+                    if (isCrypto) {
+                        item.style.cssText += 'background:#f7931a;color:#fff;width:40px;height:40px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:1.5rem;font-weight:900;';
+                        if (em === '⟠') item.style.background = '#627eea';
+                    }
+                    item.textContent = em;
+                    container.appendChild(item);
+
+                    setTimeout(function() {
+                        item.style.top = (window.innerHeight + 50) + 'px';
+                        item.style.transform = 'rotate(' + (Math.random() * 360) + 'deg)';
+                    }, 30);
+
+                    setTimeout(function() { item.remove(); }, duration * 1000 + 100);
+                }, delay);
+            })(emoji, idx * 160 + Math.random() * 100);
+        });
+
+        setTimeout(function() { container.remove(); }, 9000);
     }
 
     function showConfettiExplosion(element) {
@@ -1385,7 +1480,7 @@
         var cy = window.innerHeight / 2;
 
         // Multiple waves of particles
-        for (var wave = 0; wave < 3; wave++) {
+        for (var wave = 0; wave < 6; wave++) {
             (function(w) {
                 setTimeout(function() {
                     for (var i = 0; i < 50; i++) {
@@ -1437,10 +1532,10 @@
                         spark.style.opacity = '0';
                     }, 50);
                 }, delay);
-            })(Math.random() * 2000);
+            })(Math.random() * 6000);
         }
 
-        setTimeout(function() { container.remove(); }, 3500);
+        setTimeout(function() { container.remove(); }, 8500);
     }
 
     document.getElementById('emojiBtn').addEventListener('click', function() {
