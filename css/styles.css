@@ -701,7 +701,7 @@ body.theme-elmwood .chat-item-time { color: #8fbc8f; }
 .bottom-nav-btn.active { color: #667eea; }
 
 .nav-input {
-    display: flex; padding: 0.75rem; background: #fff;
+    display: none; padding: 0.75rem; background: #fff;
     border-top: 2px solid #667eea; gap: 0.5rem;
 }
 .nav-input-btn {
@@ -714,6 +714,7 @@ body.theme-elmwood .chat-item-time { color: #8fbc8f; }
 @media (max-width: 768px) {
     .bottom-nav { display: none; }
     .nav-input {
+        display: flex;
         position: fixed !important; bottom: 0 !important; left: 0 !important;
         right: 0 !important; z-index: 100 !important;
     }
@@ -741,3 +742,28 @@ body.theme-elmwood .chat-item-time { color: #8fbc8f; }
 
 /* Chat menu button */
 #chatMenuBtn { font-size: 1.5rem; font-weight: 900; letter-spacing: -2px; color: #F39C12; }
+
+/* Theme colors for bottom nav and nav-input */
+body.theme-dark .bottom-nav, body.theme-dark .nav-input { background: #16213e; border-color: #0f3460; }
+body.theme-dark .bottom-nav-btn, body.theme-dark .nav-input-btn { color: #e0e0e0; background: #1a1a2e; }
+body.theme-dark .bottom-nav-btn.active, body.theme-dark .nav-input-btn.active { background: #0f3460; color: #00ff88; }
+
+body.theme-hitech .bottom-nav, body.theme-hitech .nav-input { background: #0d0d0d; border-color: #00ff88; }
+body.theme-hitech .bottom-nav-btn, body.theme-hitech .nav-input-btn { color: #00ff88; background: #003322; }
+body.theme-hitech .bottom-nav-btn.active, body.theme-hitech .nav-input-btn.active { background: #00ff88; color: #0a0a0a; }
+
+body.theme-chinese .bottom-nav, body.theme-chinese .nav-input { background: #cc0000; border-color: #ffd700; }
+body.theme-chinese .bottom-nav-btn, body.theme-chinese .nav-input-btn { color: #ffd700; background: #990000; }
+body.theme-chinese .bottom-nav-btn.active, body.theme-chinese .nav-input-btn.active { background: #ffd700; color: #cc0000; }
+
+body.theme-bluedog .bottom-nav, body.theme-bluedog .nav-input { background: #AED6F1; border-color: #2E86C1; }
+body.theme-bluedog .bottom-nav-btn, body.theme-bluedog .nav-input-btn { color: #2E86C1; background: #D6EAF8; }
+body.theme-bluedog .bottom-nav-btn.active, body.theme-bluedog .nav-input-btn.active { background: #2E86C1; color: #fff; }
+
+body.theme-elmwood .bottom-nav, body.theme-elmwood .nav-input { background: #0d2b1f; border-color: #c9a84c; }
+body.theme-elmwood .bottom-nav-btn, body.theme-elmwood .nav-input-btn { color: #c9a84c; background: #14332a; }
+body.theme-elmwood .bottom-nav-btn.active, body.theme-elmwood .nav-input-btn.active { background: #c9a84c; color: #1a3c2a; }
+
+body.theme-basketball .bottom-nav, body.theme-basketball .nav-input { background: #1a0f0a; border-color: #e67e22; }
+body.theme-basketball .bottom-nav-btn, body.theme-basketball .nav-input-btn { color: #e67e22; background: #3d2317; }
+body.theme-basketball .bottom-nav-btn.active, body.theme-basketball .nav-input-btn.active { background: #e67e22; color: #1a0f0a; }
