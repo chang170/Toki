@@ -7,6 +7,7 @@ var PeerManager = {
     onMessage: null,
     onPeerConnected: null,
     onPeerDisconnected: null,
+    onIncomingCall: null,
     myPeerId: null,
     myName: null,
 
@@ -56,6 +57,10 @@ var PeerManager = {
         this.peer.on('connection', function(conn) {
             console.log('Incoming connection from:', conn.peer);
             self.handleIncoming(conn);
+        });
+
+        this.peer.on('call', function(call) {
+            if (self.onIncomingCall) self.onIncomingCall(call);
         });
 
         this.peer.on('error', function(err) {

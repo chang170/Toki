@@ -502,6 +502,8 @@
         document.getElementById('chatHeader').innerHTML =
             '<button class="back-btn" id="backBtn">←</button>' +
             '<span class="chat-title">' + escapeHtml(chat.name) + ' <small style="color:#636e72;">(' + roomCode.split('.')[0] + ')</small>' + inviteBtn + deleteBtn + '</span>' +
+            '<button id="videoCallBtn" class="call-btn" title="Video Call">📹</button>' +
+            '<button id="audioCallBtn" class="call-btn" title="Audio Call">📞</button>' +
             '<span class="chat-status">' + peers + ' connected</span>';
 
         // Delete handler
@@ -1215,6 +1217,141 @@
             });
         }, 100);
     });
+
+    // Video/Audio Call
+    var localStream = null;
+    var currentCall = null;
+    var micEnabled = true;
+    var camEnabled = true;
+
+    // Call button handlers (attached via event delegation on chat header)
+    document.querySelector('.chat-area').addEventListener('click', function(e) {
+        if (e.target.id === 'videoCallBtn') {
+            startCall(true);
+        } else if (e.target.id === 'audioCallBtn') {
+            startCall(false);
+        }
+    });
+
+    function startCall(withVideo) {
+        if (!currentRoom) return;
+        var chats = Storage.getChats();
+        var chat = chats.find(function(c) { return c.roomCode === currentRoom; });
+        if (!chat || !chat.directPeer) {
+            alert('Calls only work in direct messages.');
+            return;
+        }
+
+        var constraints = { audio: true, video: withVideo };
+        navigator.mediaDevices.getUserMedia(constraints).then(function(stream) {
+            localStream = stream;
+            document.getElementById('localVideo').srcObject = stream;
+            document.getElementById('callScreen').hidden = false;
+            document.getElementById('callInfo').textContent = 'Calling ' + chat.name + '...';
+
+            if (!withVideo) {
+                document.getElementById('localVideo').style.display = 'none';
+                document.getElementById('remoteVideo').style.display = 'none';
+            }
+
+            // Call the peer
+            var call = PeerManager.peer.call(chat.directPeer, stream);
+            currentCall = call;
+
+            call.on('stream', function(remoteStream) {
+                document.getElementById('remoteVideo').srcObject = remoteStream;
+                document.getElementById('callInfo').textContent = chat.name;
+            });
+
+            call.on('close', function() {
+                endCall();
+            });
+
+            // Notify peer about incoming call
+            PeerManager.sendMessage(currentRoom, {
+                type: 'callSignal',
+                callType: withVideo ? 'video' : 'audio',
+                sender: account.peerId,
+                senderName: account.username,
+                roomCode: currentRoom
+            });
+
+        }).catch(function(err) {
+            alert('Could not access camera/microphone: ' + err.message);
+        });
+    }
+
+    // Handle incoming calls via PeerManager callback
+    PeerManager.onIncomingCall = function(call) {
+        document.getElementById('incomingCall').hidden = false;
+        document.getElementById('incomingCaller').textContent = call.peer;
+        document.getElementById('incomingType').textContent = 'Incoming call...';
+
+        document.getElementById('acceptCallBtn').onclick = function() {
+            document.getElementById('incomingCall').hidden = true;
+            var constraints = { audio: true, video: true };
+            navigator.mediaDevices.getUserMedia(constraints).then(function(stream) {
+                localStream = stream;
+                document.getElementById('localVideo').srcObject = stream;
+                document.getElementById('callScreen').hidden = false;
+                document.getElementById('callInfo').textContent = 'Connected';
+
+                call.answer(stream);
+                currentCall = call;
+
+                call.on('stream', function(remoteStream) {
+                    document.getElementById('remoteVideo').srcObject = remoteStream;
+                });
+
+                call.on('close', function() {
+                    endCall();
+                });
+            });
+        };
+
+        document.getElementById('declineCallBtn').onclick = function() {
+            document.getElementById('incomingCall').hidden = true;
+            call.close();
+        };
+    };
+
+    // Call controls
+    document.getElementById('toggleMicBtn').addEventListener('click', function() {
+        if (!localStream) return;
+        micEnabled = !micEnabled;
+        localStream.getAudioTracks().forEach(function(t) { t.enabled = micEnabled; });
+        this.textContent = micEnabled ? '🎤' : '🔇';
+        this.classList.toggle('muted', !micEnabled);
+    });
+
+    document.getElementById('toggleCamBtn').addEventListener('click', function() {
+        if (!localStream) return;
+        camEnabled = !camEnabled;
+        localStream.getVideoTracks().forEach(function(t) { t.enabled = camEnabled; });
+        this.textContent = camEnabled ? '📷' : '🚫';
+        this.classList.toggle('muted', !camEnabled);
+    });
+
+    document.getElementById('hangupBtn').addEventListener('click', function() {
+        endCall();
+    });
+
+    function endCall() {
+        if (currentCall) { currentCall.close(); currentCall = null; }
+        if (localStream) {
+            localStream.getTracks().forEach(function(t) { t.stop(); });
+            localStream = null;
+        }
+        document.getElementById('callScreen').hidden = true;
+        document.getElementById('localVideo').srcObject = null;
+        document.getElementById('remoteVideo').srcObject = null;
+        document.getElementById('localVideo').style.display = '';
+        document.getElementById('remoteVideo').style.display = '';
+        micEnabled = true;
+        camEnabled = true;
+        document.getElementById('toggleMicBtn').textContent = '🎤';
+        document.getElementById('toggleCamBtn').textContent = '📷';
+    }
 
     // Handle incoming messages
     // Unread message tracking
