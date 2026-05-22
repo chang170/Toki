@@ -700,8 +700,23 @@ body.theme-elmwood .chat-item-time { color: #8fbc8f; }
 }
 .bottom-nav-btn.active { color: #667eea; }
 
+.nav-input {
+    display: flex; padding: 0.75rem; background: #fff;
+    border-top: 2px solid #667eea; gap: 0.5rem;
+}
+.nav-input-btn {
+    flex: 1; padding: 0.8rem; border: none; background: #f0f2f5;
+    border-radius: 20px; font-size: 1.1rem; cursor: pointer;
+    font-weight: 600; color: #636e72;
+}
+.nav-input-btn.active { background: #667eea; color: #fff; }
+
 @media (max-width: 768px) {
-    .bottom-nav { width: 100%; }
+    .bottom-nav { display: none; }
+    .nav-input {
+        position: fixed !important; bottom: 0 !important; left: 0 !important;
+        right: 0 !important; z-index: 100 !important;
+    }
     .sidebar { padding-bottom: 60px; }
 }
 
