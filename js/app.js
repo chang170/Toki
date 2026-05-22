@@ -1246,7 +1246,7 @@
         navigator.mediaDevices.getUserMedia(constraints).then(function(stream) {
             localStream = stream;
             document.getElementById('localVideo').srcObject = stream;
-            document.getElementById('callScreen').hidden = false;
+            document.getElementById('callScreen').classList.add('active');
             document.getElementById('callInfo').textContent = 'Calling ' + chat.name + '...';
 
             if (!withVideo) {
@@ -1293,7 +1293,7 @@
             navigator.mediaDevices.getUserMedia(constraints).then(function(stream) {
                 localStream = stream;
                 document.getElementById('localVideo').srcObject = stream;
-                document.getElementById('callScreen').hidden = false;
+                document.getElementById('callScreen').classList.add('active');
                 document.getElementById('callInfo').textContent = 'Connected';
 
                 call.answer(stream);
@@ -1342,7 +1342,7 @@
             localStream.getTracks().forEach(function(t) { t.stop(); });
             localStream = null;
         }
-        document.getElementById('callScreen').hidden = true;
+        document.getElementById('callScreen').classList.remove('active');
         document.getElementById('localVideo').srcObject = null;
         document.getElementById('remoteVideo').srcObject = null;
         document.getElementById('localVideo').style.display = '';
