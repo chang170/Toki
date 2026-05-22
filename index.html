@@ -125,6 +125,8 @@
                     <button class="theme-btn" data-theme="light">☀️ Light</button>
                     <button class="theme-btn" data-theme="dark">🌙 Dark</button>
                     <button class="theme-btn" data-theme="cartoon">🎪 Cartoon</button>
+                    <button class="theme-btn" data-theme="hitech">🤖 Hi-Tech</button>
+                    <button class="theme-btn" data-theme="chinese">🏮 Chinese</button>
                 </div>
             </div>
             <div class="settings-section">
@@ -137,6 +139,32 @@
                 <button id="logoutBtn" class="danger-btn">Sign Out</button>
             </div>
             <button class="modal-close" id="closeSettings">&times;</button>
+        </div>
+    </div>
+
+    <!-- Video Call Screen -->
+    <div id="callScreen" class="call-screen" hidden>
+        <div class="call-videos">
+            <video id="remoteVideo" autoplay playsinline></video>
+            <video id="localVideo" autoplay playsinline muted></video>
+        </div>
+        <div class="call-info" id="callInfo"></div>
+        <div class="call-controls">
+            <button id="toggleMicBtn" class="call-ctrl-btn">🎤</button>
+            <button id="toggleCamBtn" class="call-ctrl-btn">📷</button>
+            <button id="hangupBtn" class="call-ctrl-btn hangup">📵</button>
+        </div>
+    </div>
+
+    <!-- Incoming Call Modal -->
+    <div id="incomingCall" class="incoming-call" hidden>
+        <div class="incoming-call-content">
+            <p class="incoming-caller" id="incomingCaller"></p>
+            <p class="incoming-type" id="incomingType"></p>
+            <div class="incoming-actions">
+                <button id="acceptCallBtn" class="call-accept">Accept</button>
+                <button id="declineCallBtn" class="call-decline">Decline</button>
+            </div>
         </div>
     </div>
 
