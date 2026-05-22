@@ -132,9 +132,9 @@ body {
 .msg-sender { font-size: 0.8rem; color: #667eea; font-weight: 700; margin-bottom: 0.2rem; }
 .msg-time { font-size: 0.8rem; color: #999; margin-top: 0.2rem; text-align: right; font-weight: 600; }
 .msg-check { margin-left: 0.3rem; font-size: 0.85rem; }
-.msg-check.sent { color: #999; }
-.msg-check.delivered { color: #999; }
-.msg-check.read { color: #53bdeb; }
+.msg-check.sent { color: #e67e22; }
+.msg-check.delivered { color: #27ae60; }
+.msg-check.read { color: #00b4d8; }
 .msg-media { max-width: 100%; border-radius: 6px; margin-top: 0.3rem; }
 .msg-media img { max-width: 250px; max-height: 200px; border-radius: 6px; }
 .msg-media video { max-width: 250px; max-height: 200px; border-radius: 6px; }
@@ -276,64 +276,47 @@ body.theme-dark .modal-content { background: #16213e; color: #e0e0e0; }
 body.theme-dark .modal-content input { background: #1a1a2e; color: #e0e0e0; border-color: #0f3460; }
 
 /* Basketball Theme */
-body.theme-basketball { background: #f5e6d3; color: #2d1b00; font-family: 'Impact', 'Arial Black', sans-serif; }
-body.theme-basketball .sidebar { background: #e8d5b7; border-color: #c0392b; border-right: 3px solid #c0392b; }
-body.theme-basketball .chat-area { background: #fdf2e9; position: relative; overflow: hidden; }
-body.theme-basketball .chat-area::after {
-    content: '🏀';
-    position: absolute;
-    top: 40%;
-    font-size: 7.5rem;
-    animation: basketballDunk 6s ease-in-out infinite;
-    opacity: 0.25;
-    pointer-events: none;
-    z-index: 0;
-}
-body.theme-basketball .chat-area::before {
-    content: '🏀';
-    position: absolute;
-    top: 55%;
-    font-size: 7.5rem;
-    animation: basketballDunk 8s ease-in-out infinite 2s;
-    opacity: 0.15;
-    pointer-events: none;
-    z-index: 0;
-}
-@keyframes basketballDunk {
-    0% { left: -100px; transform: translateY(0); }
-    20% { transform: translateY(-80px); }
-    40% { left: 30%; transform: translateY(0); }
-    50% { left: 45%; transform: translateY(-120px); }
-    60% { left: 55%; transform: translateY(-60px); }
-    80% { transform: translateY(0); }
-    100% { left: 110%; transform: translateY(0); }
+body.theme-basketball { background: #2c1810; color: #fff; font-family: 'Segoe UI', sans-serif; }
+body.theme-basketball .sidebar { background: #3d2317; border-color: #e67e22; border-right: 3px solid #e67e22; }
+body.theme-basketball .chat-area {
+    background: #c17f3e;
+    background-image:
+        linear-gradient(rgba(0,0,0,0.1) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(0,0,0,0.1) 1px, transparent 1px),
+        radial-gradient(circle at 50% 50%, transparent 18%, rgba(255,255,255,0.15) 18%, rgba(255,255,255,0.15) 19%, transparent 19%),
+        linear-gradient(transparent 49.5%, rgba(255,255,255,0.2) 49.5%, rgba(255,255,255,0.2) 50.5%, transparent 50.5%);
+    background-size: 100% 100%, 100% 100%, 100% 100%, 100% 100%;
+    position: relative;
 }
 body.theme-basketball .messages { position: relative; z-index: 1; }
-body.theme-basketball .chat-header { background: #c0392b; color: #fff; border: none; }
-body.theme-basketball .chat-header .chat-title { color: #fff; }
-body.theme-basketball .chat-header .chat-status { color: #f5b7b1; }
+body.theme-basketball .chat-header { background: #1a0f0a; color: #e67e22; border-bottom: 2px solid #e67e22; }
+body.theme-basketball .chat-header .chat-title { color: #e67e22; }
+body.theme-basketball .chat-header .chat-status { color: #f5b041; }
 body.theme-basketball .msg-sent { background: #e67e22; color: #fff; border-radius: 16px; }
-body.theme-basketball .msg-received { background: #fff; color: #2d1b00; border: 2px solid #e67e22; border-radius: 16px; }
-body.theme-basketball .message-input { background: #e8d5b7; border-top: 3px solid #c0392b; position: relative; z-index: 5; }
-body.theme-basketball .message-input input { border: 2px solid #e67e22; border-radius: 20px; background: #fff; font-family: 'Segoe UI', sans-serif; }
-body.theme-basketball .sidebar-header { background: #c0392b; border: none; }
-body.theme-basketball .sidebar-header .user-name { color: #fff; }
-body.theme-basketball .user-avatar { background: #e67e22; color: #fff; border: 3px solid #d35400; }
-body.theme-basketball .chat-item:hover { background: #fdf2e9; }
-body.theme-basketball .chat-item.active { background: #fdebd0; }
-body.theme-basketball .chat-item-name { color: #2d1b00; }
-body.theme-basketball .chat-item-avatar { background: #e67e22; color: #fff; }
-body.theme-basketball .online-header { background: #c0392b; color: #fff; }
-body.theme-basketball .online-header span { background: #e67e22; color: #fff; }
-body.theme-basketball .online-user-name { color: #2d1b00; }
-body.theme-basketball .modal-content { background: #fdf2e9; border: 3px solid #c0392b; }
-body.theme-basketball .modal-content h2 { color: #c0392b; }
-body.theme-basketball #sendBtn { background: #c0392b; color: #fff; font-family: 'Segoe UI', sans-serif; }
-body.theme-basketball .sidebar-actions button { background: #e67e22; color: #fff; border: none; }
-body.theme-basketball .msg-sender { color: #c0392b; }
-body.theme-basketball .msg-time { color: #a04000; }
-body.theme-basketball .unread-badge { background: #c0392b; color: #fff; }
+body.theme-basketball .msg-received { background: #3d2317; color: #fff; border: 1px solid #e67e22; border-radius: 16px; }
+body.theme-basketball .message-input { background: #1a0f0a; border-top: 3px solid #e67e22; position: relative; z-index: 5; }
+body.theme-basketball .message-input input { border: 2px solid #e67e22; border-radius: 20px; background: #3d2317; color: #fff; }
+body.theme-basketball .sidebar-header { background: #1a0f0a; border-bottom: 1px solid #e67e22; }
+body.theme-basketball .sidebar-header .user-name { color: #e67e22; }
+body.theme-basketball .user-avatar { background: #e67e22; color: #1a0f0a; border: 3px solid #d35400; }
+body.theme-basketball .chat-item:hover { background: #4a2c1a; }
+body.theme-basketball .chat-item.active { background: #5a3520; }
+body.theme-basketball .chat-item-name { color: #fff; }
+body.theme-basketball .chat-item-last { color: #f5b041; }
+body.theme-basketball .chat-item-avatar { background: #e67e22; color: #1a0f0a; }
+body.theme-basketball .online-header { background: #1a0f0a; color: #e67e22; }
+body.theme-basketball .online-header span { background: #e67e22; color: #1a0f0a; }
+body.theme-basketball .online-user-name { color: #fff; }
+body.theme-basketball .modal-content { background: #3d2317; color: #fff; border: 3px solid #e67e22; }
+body.theme-basketball .modal-content h2 { color: #e67e22; }
+body.theme-basketball .modal-content input { background: #1a0f0a; color: #fff; border-color: #e67e22; }
+body.theme-basketball #sendBtn { background: #e67e22; color: #1a0f0a; font-weight: 700; }
+body.theme-basketball .sidebar-actions button { background: #e67e22; color: #1a0f0a; border: none; }
+body.theme-basketball .msg-sender { color: #f5b041; }
+body.theme-basketball .msg-time { color: #f5b041; }
+body.theme-basketball .unread-badge { background: #e67e22; color: #1a0f0a; }
 body.theme-basketball .back-btn { color: #e67e22; -webkit-text-stroke-color: #e67e22; }
+body.theme-basketball .chat-item-time { color: #f5b041; }
 
 /* Message context menu */
 .msg-context-menu {
@@ -589,14 +572,14 @@ body.theme-bluedog .chat-area::before {
     75% { transform: scaleX(1) translateY(-15px); }
     100% { left: 110%; transform: scaleX(1) translateY(0); }
 }
-body.theme-bluedog .messages { position: relative; z-index: 1; overflow: hidden; }
+body.theme-bluedog .messages { position: relative; z-index: 1; }
 body.theme-bluedog .chat-header { background: #2E86C1; color: #fff; border: none; }
 body.theme-bluedog .chat-header .chat-title { color: #fff; }
 body.theme-bluedog .chat-header .chat-status { color: #AED6F1; }
 body.theme-bluedog .msg-sent { background: #F39C12; color: #fff; border-radius: 18px; }
 body.theme-bluedog .msg-received { background: #fff; color: #2c3e50; border: 2px solid #5DADE2; border-radius: 18px; }
 body.theme-bluedog .message-input { background: #AED6F1; border-top: 3px solid #2E86C1; position: relative; z-index: 5; }
-body.theme-bluedog .message-input input { border: 2px solid #2E86C1; border-radius: 20px; background: #fff; }
+body.theme-bluedog .message-input input { border: 2px solid #2E86C1; border-radius: 20px; background: #fff; color: #2c3e50; }
 body.theme-bluedog .sidebar-header { background: #2E86C1; border: none; }
 body.theme-bluedog .sidebar-header .user-name { color: #fff; }
 body.theme-bluedog .user-avatar { background: #F39C12; color: #fff; border: 3px solid #E67E22; }
@@ -621,7 +604,7 @@ body.theme-bluedog .online-dot { background: #F39C12; }
 /* Elmwood Theme - Dark green & gold, academic inspired */
 body.theme-elmwood { background: #1a3c2a; color: #f5f0e0; font-family: 'Georgia', 'Times New Roman', serif; }
 body.theme-elmwood .sidebar { background: #14332a; border-color: #c9a84c; border-right: 2px solid #c9a84c; }
-body.theme-elmwood .chat-area { background: #1e4d38; position: relative; overflow: hidden; }
+body.theme-elmwood .chat-area { background: #1e4d38; position: relative; }
 body.theme-elmwood .chat-area::after {
     content: '🦅';
     position: absolute;
