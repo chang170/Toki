@@ -33,6 +33,7 @@
     var processedMsgIds = {};
     var replyingTo = null;
     var openedGifts = {};
+    var animationPlaying = false;
 
     // Check if already logged in
     account = Storage.getAccount();
@@ -772,19 +773,24 @@
         container.querySelectorAll('.msg-giftbox:not(.opened)').forEach(function(box) {
             box.addEventListener('click', function(e) {
                 e.stopPropagation();
+                if (animationPlaying) return;
                 var giftId = box.dataset.giftId;
                 var animType = box.dataset.anim;
                 openedGifts[giftId] = true;
                 box.classList.add('opened');
+                animationPlaying = true;
                 if (animType === 'basketball') {
                     box.innerHTML = '🏀';
                     showBasketballBounce(box);
+                    setTimeout(function() { animationPlaying = false; }, 9000);
                 } else if (animType === 'redpacket') {
                     box.innerHTML = '🧧💰';
                     showRedPacketRain(box);
+                    setTimeout(function() { animationPlaying = false; }, 9000);
                 } else {
                     box.innerHTML = '🎊';
                     showConfettiExplosion(box);
+                    setTimeout(function() { animationPlaying = false; }, 8500);
                 }
             });
         });
