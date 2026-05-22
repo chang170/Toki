@@ -1237,10 +1237,7 @@
         if (!currentRoom) return;
         var chats = Storage.getChats();
         var chat = chats.find(function(c) { return c.roomCode === currentRoom; });
-        if (!chat || !chat.directPeer) {
-            alert('Calls only work in direct messages.');
-            return;
-        }
+        if (!chat) return;
 
         var constraints = { audio: true, video: withVideo };
         navigator.mediaDevices.getUserMedia(constraints).then(function(stream) {
@@ -1254,20 +1251,36 @@
                 document.getElementById('remoteVideo').style.display = 'none';
             }
 
-            // Call the peer
-            var call = PeerManager.peer.call(chat.directPeer, stream);
-            currentCall = call;
-
-            call.on('stream', function(remoteStream) {
-                document.getElementById('remoteVideo').srcObject = remoteStream;
-                document.getElementById('callInfo').textContent = chat.name;
+            // Call all connected peers in this room
+            var conns = PeerManager.connections[currentRoom] || [];
+            conns.forEach(function(conn) {
+                if (conn.open) {
+                    var call = PeerManager.peer.call(conn.peer, stream);
+                    currentCall = call;
+                    call.on('stream', function(remoteStream) {
+                        document.getElementById('remoteVideo').srcObject = remoteStream;
+                        document.getElementById('callInfo').textContent = chat.name;
+                    });
+                    call.on('close', function() {
+                        endCall();
+                    });
+                }
             });
 
-            call.on('close', function() {
-                endCall();
-            });
+            // Also try direct peer for DMs
+            if (chat.directPeer && conns.length === 0) {
+                var call = PeerManager.peer.call(chat.directPeer, stream);
+                currentCall = call;
+                call.on('stream', function(remoteStream) {
+                    document.getElementById('remoteVideo').srcObject = remoteStream;
+                    document.getElementById('callInfo').textContent = chat.name;
+                });
+                call.on('close', function() {
+                    endCall();
+                });
+            }
 
-            // Notify peer about incoming call
+            // Notify peers about incoming call
             PeerManager.sendMessage(currentRoom, {
                 type: 'callSignal',
                 callType: withVideo ? 'video' : 'audio',
@@ -1334,6 +1347,35 @@
 
     document.getElementById('hangupBtn').addEventListener('click', function() {
         endCall();
+    });
+
+    var usingFrontCamera = true;
+    document.getElementById('switchCamBtn').addEventListener('click', function() {
+        if (!localStream) return;
+        usingFrontCamera = !usingFrontCamera;
+        var constraints = {
+            audio: true,
+            video: { facingMode: usingFrontCamera ? 'user' : 'environment' }
+        };
+        // Stop current video track
+        localStream.getVideoTracks().forEach(function(t) { t.stop(); });
+        navigator.mediaDevices.getUserMedia(constraints).then(function(newStream) {
+            var newVideoTrack = newStream.getVideoTracks()[0];
+            // Replace track in local stream
+            var oldVideoTrack = localStream.getVideoTracks()[0];
+            localStream.removeTrack(oldVideoTrack);
+            localStream.addTrack(newVideoTrack);
+            document.getElementById('localVideo').srcObject = localStream;
+            // Replace track in peer connection
+            if (currentCall && currentCall.peerConnection) {
+                var sender = currentCall.peerConnection.getSenders().find(function(s) {
+                    return s.track && s.track.kind === 'video';
+                });
+                if (sender) sender.replaceTrack(newVideoTrack);
+            }
+        }).catch(function(err) {
+            console.error('Switch camera failed:', err);
+        });
     });
 
     function endCall() {
