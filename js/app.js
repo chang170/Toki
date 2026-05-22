@@ -12,13 +12,18 @@
     // Prevent browser back button from leaving the app
     window.addEventListener('popstate', function(e) {
         history.pushState(null, '', location.href);
-        // On mobile, use back to go from chat to sidebar
         if (window.innerWidth <= 768 && document.querySelector('.sidebar.hidden')) {
             document.querySelector('.sidebar').classList.remove('hidden');
         }
     });
     history.pushState(null, '', location.href);
     history.pushState(null, '', location.href);
+
+    // Warn before leaving
+    window.addEventListener('beforeunload', function(e) {
+        e.preventDefault();
+        e.returnValue = '';
+    });
 
     var currentRoom = null;
     var account = null;
