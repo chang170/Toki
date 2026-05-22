@@ -223,9 +223,10 @@ body {
     .chat-header { position: relative; }
     .back-btn {
         display: inline-block; margin-right: 0.5rem; background: none;
-        border: none; font-size: 1.3rem; cursor: pointer; padding: 0.2rem 0.5rem;
+        border: none; font-size: 2rem; cursor: pointer; padding: 0.3rem 0.6rem;
+        font-weight: 900;
     }
-    .messages { flex: 1; min-height: 0; overflow-y: auto; }
+    .messages { flex: 1; min-height: 0; overflow-y: auto; padding-bottom: 80px; }
     .message-input {
         position: sticky; bottom: 0; background: #fff;
         padding: 0.5rem; border-top: 2px solid #667eea; z-index: 10;
