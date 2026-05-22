@@ -7,7 +7,7 @@
     <meta http-equiv="Pragma" content="no-cache">
     <meta http-equiv="Expires" content="0">
     <title>Toki</title>
-    <link rel="stylesheet" href="css/styles.css?v=38"></head>
+    <link rel="stylesheet" href="css/styles.css?v=39"></head>
 <body>
     <!-- Login/Signup Screen -->
     <div id="authScreen" class="screen active">
@@ -51,6 +51,10 @@
                 </div>
                 <div class="chat-list" id="chatList"></div>
                 <div class="call-history" id="callHistory" style="display:none;"></div>
+                <div class="bottom-nav" id="bottomNav">
+                    <button class="bottom-nav-btn active" data-view="chats">💬 Chats</button>
+                    <button class="bottom-nav-btn" data-view="calls">📞 Calls</button>
+                </div>
             </aside>
 
             <!-- Chat Area -->
@@ -182,6 +186,6 @@
     <script src="js/storage.js?v=17"></script>
     <script src="js/presence.js?v=17"></script>
     <script src="js/peer.js?v=17"></script>
-    <script src="js/app.js?v=32"></script>
+    <script src="js/app.js?v=33"></script>
 </body>
 </html>
