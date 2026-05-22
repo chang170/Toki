@@ -165,10 +165,11 @@ body {
 }
 .modal[hidden] { display: none; }
 .modal-content {
-    background: #fff; padding: 2rem; border-radius: 12px;
-    width: 400px; position: relative;
+    background: #fff; padding: 1.5rem; border-radius: 12px;
+    width: 350px; max-height: 85vh; overflow-y: auto; position: relative;
+    font-size: 0.85rem;
 }
-.modal-content h2 { color: #667eea; margin-bottom: 1rem; }
+.modal-content h2 { color: #667eea; margin-bottom: 0.75rem; font-size: 1.2rem; }
 .modal-close {
     position: absolute; top: 1rem; right: 1rem; background: none;
     border: none; font-size: 1.5rem; cursor: pointer; color: #636e72;
@@ -231,7 +232,7 @@ body {
         position: sticky; bottom: 0; background: #fff;
         padding: 0.5rem; border-top: 2px solid #667eea; z-index: 10;
     }
-    .message-input input[type="text"] { font-size: 16px; }
+    .message-input input[type="text"] { font-size: 16px; padding: 0.9rem 1.2rem; }
     #sendBtn { padding: 0.6rem 1rem; font-size: 0.9rem; }
     .online-section { max-height: 200px; }
 }
@@ -524,3 +525,35 @@ body.theme-chinese .back-btn { color: #ffd700; }
 .incoming-actions { display: flex; justify-content: center; gap: 1rem; }
 .call-accept { padding: 0.7rem 2rem; background: #00b894; color: #fff; border: none; border-radius: 30px; font-size: 1rem; font-weight: 600; cursor: pointer; }
 .call-decline { padding: 0.7rem 2rem; background: #d63031; color: #fff; border: none; border-radius: 30px; font-size: 1rem; font-weight: 600; cursor: pointer; }
+
+/* Blue Dog Theme */
+body.theme-bluedog { background: #87CEEB; color: #2c3e50; font-family: 'Nunito', 'Segoe UI', sans-serif; }
+body.theme-bluedog .sidebar { background: #5DADE2; border-color: #2E86C1; }
+body.theme-bluedog .chat-area { background: #AED6F1; background-image: url("data:image/svg+xml,%3Csvg width='80' height='80' xmlns='http://www.w3.org/2000/svg'%3E%3Ccircle cx='40' cy='40' r='3' fill='%2385C1E9' opacity='0.5'/%3E%3Ccircle cx='10' cy='10' r='2' fill='%2385C1E9' opacity='0.3'/%3E%3Ccircle cx='70' cy='20' r='2' fill='%2385C1E9' opacity='0.3'/%3E%3C/svg%3E"); }
+body.theme-bluedog .chat-header { background: #2E86C1; color: #fff; border: none; }
+body.theme-bluedog .chat-header .chat-title { color: #fff; }
+body.theme-bluedog .chat-header .chat-status { color: #AED6F1; }
+body.theme-bluedog .msg-sent { background: #F39C12; color: #fff; border-radius: 18px; }
+body.theme-bluedog .msg-received { background: #fff; color: #2c3e50; border: 2px solid #5DADE2; border-radius: 18px; }
+body.theme-bluedog .message-input { background: #5DADE2; border-top: 3px solid #2E86C1; }
+body.theme-bluedog .message-input input { border: 2px solid #2E86C1; border-radius: 20px; background: #fff; }
+body.theme-bluedog .sidebar-header { background: #2E86C1; border: none; }
+body.theme-bluedog .sidebar-header .user-name { color: #fff; }
+body.theme-bluedog .user-avatar { background: #F39C12; color: #fff; border: 3px solid #E67E22; }
+body.theme-bluedog .chat-item:hover { background: #85C1E9; }
+body.theme-bluedog .chat-item.active { background: #AED6F1; }
+body.theme-bluedog .chat-item-name { color: #2c3e50; }
+body.theme-bluedog .chat-item-avatar { background: #F39C12; color: #fff; border: 2px solid #E67E22; }
+body.theme-bluedog .chat-item-avatar.group { background: #2ECC71; }
+body.theme-bluedog .online-header { background: #2E86C1; color: #fff; }
+body.theme-bluedog .online-header span { background: #F39C12; color: #fff; }
+body.theme-bluedog .online-user-name { color: #fff; }
+body.theme-bluedog .modal-content { background: #EBF5FB; border: 3px solid #2E86C1; border-radius: 16px; }
+body.theme-bluedog .modal-content h2 { color: #2E86C1; }
+body.theme-bluedog #sendBtn { background: #F39C12; color: #fff; border-radius: 20px; }
+body.theme-bluedog .sidebar-actions button { background: #F39C12; color: #fff; border: none; }
+body.theme-bluedog .msg-sender { color: #2E86C1; }
+body.theme-bluedog .msg-time { color: #7FB3D3; }
+body.theme-bluedog .unread-badge { background: #F39C12; color: #fff; }
+body.theme-bluedog .back-btn { color: #fff; }
+body.theme-bluedog .online-dot { background: #F39C12; }
