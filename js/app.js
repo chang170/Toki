@@ -14,6 +14,7 @@
     var unreadCounts = {};
     var processedMsgIds = {};
     var replyingTo = null;
+    var openedGifts = {};
 
     // Check if already logged in
     account = Storage.getAccount();
@@ -105,6 +106,11 @@
     function showChatScreen() {
         document.getElementById('authScreen').classList.remove('active');
         document.getElementById('chatScreen').classList.add('active');
+
+        // Request notification permission
+        if ('Notification' in window && Notification.permission === 'default') {
+            Notification.requestPermission();
+        }
 
         // Set user info
         var profile = JSON.parse(localStorage.getItem('toki_profile') || '{}');
@@ -593,7 +599,19 @@
                     '<span class="reply-text">' + escapeHtml(msg.replyTo.text || '📎 Media') + '</span></div>';
             }
             if (msg.animation === 'giftbox') {
-                html += '<div class="msg-giftbox" data-msg-idx="' + idx + '">🎁<div class="giftbox-label">Tap to open!</div></div>';
+                var giftOpened = openedGifts[msg.msgId];
+                if (giftOpened) {
+                    html += '<div class="msg-giftbox opened">🎊</div>';
+                } else {
+                    html += '<div class="msg-giftbox" data-gift-id="' + msg.msgId + '" data-anim="giftbox">🎁<div class="giftbox-label">Tap to open!</div></div>';
+                }
+            } else if (msg.animation === 'basketball') {
+                var bballOpened = openedGifts[msg.msgId];
+                if (bballOpened) {
+                    html += '<div class="msg-giftbox opened">🏀</div>';
+                } else {
+                    html += '<div class="msg-giftbox" data-gift-id="' + msg.msgId + '" data-anim="basketball">🏀<div class="giftbox-label">Tap to play!</div></div>';
+                }
             } else if (msg.location) {
                 var mapLink = 'https://www.google.com/maps?q=' + msg.location.lat + ',' + msg.location.lng;
                 var mapImg = 'https://maps.googleapis.com/maps/api/staticmap?center=' + msg.location.lat + ',' + msg.location.lng + '&zoom=15&size=250x150&markers=color:red%7C' + msg.location.lat + ',' + msg.location.lng + '&key=';
@@ -641,13 +659,20 @@
         });
 
         // Gift box click handler
-        container.querySelectorAll('.msg-giftbox').forEach(function(box) {
+        container.querySelectorAll('.msg-giftbox:not(.opened)').forEach(function(box) {
             box.addEventListener('click', function(e) {
                 e.stopPropagation();
-                if (box.classList.contains('opened')) return;
+                var giftId = box.dataset.giftId;
+                var animType = box.dataset.anim;
+                openedGifts[giftId] = true;
                 box.classList.add('opened');
-                box.innerHTML = '🎊';
-                showConfettiExplosion(box);
+                if (animType === 'basketball') {
+                    box.innerHTML = '🏀';
+                    showBasketballBounce(box);
+                } else {
+                    box.innerHTML = '🎊';
+                    showConfettiExplosion(box);
+                }
             });
         });
     }
@@ -1196,36 +1221,63 @@
     // Emoji picker
     var emojis = ['😊','😂','❤️','👍','👎','🙏','🔥','🎉','😢','😮','😡','🤔','👋','💯','✅','❌','⭐','🙌','💪','😎','🥳','😍','🤣','😭','😱','🤝','👏','💀','🫡','😴'];
 
-    // Send Animation (Gift Box)
+    // Send Animation (Gift selection)
     document.getElementById('animBtn').addEventListener('click', function() {
         if (!currentRoom) return;
-        var msg = {
-            type: 'message',
-            roomCode: currentRoom,
-            sender: account.peerId,
-            senderName: account.username,
-            text: '',
-            animation: 'giftbox',
-            msgId: Date.now() + '-' + Math.random().toString(36).substr(2, 5),
-            delivered: false,
-            read: false,
-            timestamp: Date.now()
-        };
-        if (replyingTo) {
-            msg.replyTo = replyingTo;
-            replyingTo = null;
-            hideReplyPreview();
-        }
-        Storage.saveMessage(currentRoom, msg);
-        PeerManager.sendMessage(currentRoom, msg);
-        renderMessages(currentRoom);
-        renderChatList();
+        var existing = document.getElementById('animPicker');
+        if (existing) { existing.remove(); return; }
+
+        var picker = document.createElement('div');
+        picker.id = 'animPicker';
+        picker.className = 'emoji-picker';
+        picker.innerHTML =
+            '<span class="emoji-item anim-choice" data-anim="giftbox" title="Gift Box Explosion">🎁</span>' +
+            '<span class="emoji-item anim-choice" data-anim="basketball" title="Basketball Bounce">🏀</span>';
+
+        var inputArea = document.getElementById('messageInputArea');
+        inputArea.insertBefore(picker, inputArea.firstChild);
+
+        picker.querySelectorAll('.anim-choice').forEach(function(item) {
+            item.addEventListener('click', function() {
+                var animType = item.dataset.anim;
+                var msg = {
+                    type: 'message',
+                    roomCode: currentRoom,
+                    sender: account.peerId,
+                    senderName: account.username,
+                    text: '',
+                    animation: animType,
+                    msgId: Date.now() + '-' + Math.random().toString(36).substr(2, 5),
+                    delivered: false,
+                    read: false,
+                    timestamp: Date.now()
+                };
+                if (replyingTo) {
+                    msg.replyTo = replyingTo;
+                    replyingTo = null;
+                    hideReplyPreview();
+                }
+                Storage.saveMessage(currentRoom, msg);
+                PeerManager.sendMessage(currentRoom, msg);
+                renderMessages(currentRoom);
+                renderChatList();
+                picker.remove();
+            });
+        });
+
+        setTimeout(function() {
+            document.addEventListener('click', function closePicker(e) {
+                if (!picker.contains(e.target) && e.target.id !== 'animBtn') {
+                    picker.remove();
+                    document.removeEventListener('click', closePicker);
+                }
+            });
+        }, 100);
     });
 
     function playExplosionSound() {
         try {
             var ctx = new (window.AudioContext || window.webkitAudioContext)();
-            // Create multiple pops
             for (var i = 0; i < 5; i++) {
                 (function(delay) {
                     setTimeout(function() {
@@ -1245,65 +1297,150 @@
         } catch(e) {}
     }
 
-    function showConfettiExplosion(element) {
-        playExplosionSound();
-        var colors = ['#ff0000','#ffd700','#00ff00','#00bfff','#ff69b4','#ff8c00','#9400d3'];
+    function playBounceSound() {
+        try {
+            var ctx = new (window.AudioContext || window.webkitAudioContext)();
+            var osc = ctx.createOscillator();
+            var gain = ctx.createGain();
+            osc.connect(gain);
+            gain.connect(ctx.destination);
+            osc.frequency.value = 80 + Math.random() * 60;
+            osc.type = 'sine';
+            gain.gain.setValueAtTime(0.4, ctx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.2);
+            osc.start(ctx.currentTime);
+            osc.stop(ctx.currentTime + 0.2);
+        } catch(e) {}
+    }
+
+    function showBasketballBounce(element) {
         var container = document.createElement('div');
         container.style.cssText = 'position:fixed;inset:0;pointer-events:none;z-index:9999;overflow:hidden;';
         document.body.appendChild(container);
 
-        var rect = element.getBoundingClientRect();
-        var cx = rect.left + rect.width / 2;
-        var cy = rect.top + rect.height / 2;
+        var screenW = window.innerWidth;
+        var screenH = window.innerHeight;
 
-        for (var i = 0; i < 60; i++) {
-            var particle = document.createElement('div');
-            var color = colors[Math.floor(Math.random() * colors.length)];
-            var size = 6 + Math.random() * 10;
-            var angle = Math.random() * Math.PI * 2;
-            var velocity = 100 + Math.random() * 300;
-            var dx = Math.cos(angle) * velocity;
-            var dy = Math.sin(angle) * velocity;
-            var shape = Math.random() > 0.5 ? '50%' : '0';
+        for (var i = 0; i < 8; i++) {
+            (function(idx) {
+                var ball = document.createElement('div');
+                ball.style.cssText = 'position:absolute;font-size:4rem;' +
+                    'left:' + (Math.random() * (screenW - 60)) + 'px;top:-60px;';
+                ball.textContent = '🏀';
+                container.appendChild(ball);
 
-            particle.style.cssText = 'position:absolute;width:' + size + 'px;height:' + size + 'px;' +
-                'background:' + color + ';border-radius:' + shape + ';' +
-                'left:' + cx + 'px;top:' + cy + 'px;' +
-                'transition:all 1.5s cubic-bezier(0.25,0.46,0.45,0.94);opacity:1;';
-            container.appendChild(particle);
+                var x = parseFloat(ball.style.left);
+                var y = -60;
+                var vx = (Math.random() - 0.5) * 6;
+                var vy = 0;
+                var gravity = 0.5;
+                var bounce = 0.75;
+                var frame = 0;
+                var maxFrames = 180; // ~3 seconds at 60fps
 
-            setTimeout(function(p, x, y) {
-                return function() {
-                    p.style.left = (cx + x) + 'px';
-                    p.style.top = (cy + y + 200) + 'px';
-                    p.style.opacity = '0';
-                    p.style.transform = 'rotate(' + (Math.random() * 720) + 'deg)';
-                };
-            }(particle, dx, dy), 10);
+                function animate() {
+                    vy += gravity;
+                    x += vx;
+                    y += vy;
+
+                    // Bounce off bottom
+                    if (y > screenH - 60) {
+                        y = screenH - 60;
+                        vy = -vy * bounce;
+                        playBounceSound();
+                    }
+                    // Bounce off sides
+                    if (x < 0 || x > screenW - 60) {
+                        vx = -vx;
+                        x = Math.max(0, Math.min(x, screenW - 60));
+                    }
+
+                    ball.style.left = x + 'px';
+                    ball.style.top = y + 'px';
+                    ball.style.transform = 'rotate(' + (frame * 5) + 'deg)';
+
+                    frame++;
+                    if (frame < maxFrames) {
+                        requestAnimationFrame(animate);
+                    }
+                }
+
+                setTimeout(function() {
+                    animate();
+                }, idx * 300);
+            })(i);
         }
 
-        // Add sparkle emojis
-        var sparkles = ['✨','🎆','🎇','💥','🌟'];
-        for (var j = 0; j < 8; j++) {
-            var spark = document.createElement('div');
-            var sAngle = Math.random() * Math.PI * 2;
-            var sDist = 50 + Math.random() * 150;
-            spark.style.cssText = 'position:absolute;font-size:2rem;' +
-                'left:' + cx + 'px;top:' + cy + 'px;' +
-                'transition:all 1s ease-out;opacity:1;';
-            spark.textContent = sparkles[Math.floor(Math.random() * sparkles.length)];
-            container.appendChild(spark);
+        setTimeout(function() { container.remove(); }, 4000);
+    }
 
-            setTimeout(function(s, sx, sy) {
-                return function() {
-                    s.style.left = (cx + sx) + 'px';
-                    s.style.top = (cy + sy) + 'px';
-                    s.style.opacity = '0';
-                };
-            }(spark, Math.cos(sAngle) * sDist, Math.sin(sAngle) * sDist), 10);
+    function showConfettiExplosion(element) {
+        playExplosionSound();
+        var colors = ['#ff0000','#ffd700','#00ff00','#00bfff','#ff69b4','#ff8c00','#9400d3','#ff4500','#7fff00','#dc143c'];
+        var container = document.createElement('div');
+        container.style.cssText = 'position:fixed;inset:0;pointer-events:none;z-index:9999;overflow:hidden;';
+        document.body.appendChild(container);
+
+        var cx = window.innerWidth / 2;
+        var cy = window.innerHeight / 2;
+
+        // Multiple waves of particles
+        for (var wave = 0; wave < 3; wave++) {
+            (function(w) {
+                setTimeout(function() {
+                    for (var i = 0; i < 50; i++) {
+                        var particle = document.createElement('div');
+                        var color = colors[Math.floor(Math.random() * colors.length)];
+                        var size = 8 + Math.random() * 14;
+                        var angle = Math.random() * Math.PI * 2;
+                        var velocity = 200 + Math.random() * 500;
+                        var dx = Math.cos(angle) * velocity;
+                        var dy = Math.sin(angle) * velocity;
+                        var shape = Math.random() > 0.5 ? '50%' : '0';
+
+                        particle.style.cssText = 'position:absolute;width:' + size + 'px;height:' + size + 'px;' +
+                            'background:' + color + ';border-radius:' + shape + ';' +
+                            'left:' + cx + 'px;top:' + cy + 'px;' +
+                            'transition:all 2.5s cubic-bezier(0.25,0.46,0.45,0.94);opacity:1;';
+                        container.appendChild(particle);
+
+                        setTimeout(function(p, x, y) {
+                            return function() {
+                                p.style.left = (cx + x) + 'px';
+                                p.style.top = (cy + y + 300) + 'px';
+                                p.style.opacity = '0';
+                                p.style.transform = 'rotate(' + (Math.random() * 1080) + 'deg) scale(0.3)';
+                            };
+                        }(particle, dx, dy), 20);
+                    }
+                    if (w > 0) playExplosionSound();
+                }, w * 600);
+            })(wave);
         }
 
-        setTimeout(function() { container.remove(); }, 2000);
+        // Add sparkle emojis across the screen
+        var sparkles = ['✨','🎆','🎇','💥','🌟','🎉','🎊','⭐'];
+        for (var j = 0; j < 20; j++) {
+            (function(delay) {
+                setTimeout(function() {
+                    var spark = document.createElement('div');
+                    var sx = Math.random() * window.innerWidth;
+                    var sy = Math.random() * window.innerHeight;
+                    spark.style.cssText = 'position:absolute;font-size:3rem;' +
+                        'left:' + sx + 'px;top:' + sy + 'px;' +
+                        'transition:all 1.5s ease-out;opacity:1;transform:scale(0);';
+                    spark.textContent = sparkles[Math.floor(Math.random() * sparkles.length)];
+                    container.appendChild(spark);
+
+                    setTimeout(function() {
+                        spark.style.transform = 'scale(1.5)';
+                        spark.style.opacity = '0';
+                    }, 50);
+                }, delay);
+            })(Math.random() * 2000);
+        }
+
+        setTimeout(function() { container.remove(); }, 3500);
     }
 
     document.getElementById('emojiBtn').addEventListener('click', function() {
@@ -1591,6 +1728,8 @@
             } else {
                 // Mark as unread
                 unreadCounts[data.roomCode] = (unreadCounts[data.roomCode] || 0) + 1;
+                // Show system notification
+                showSystemNotification(data.senderName || 'New message', data.text || (data.animation ? '🎁 Animation' : '📎 Media'), data.roomCode);
             }
 
             // Update page title with total unread
@@ -1665,6 +1804,30 @@
             total += unreadCounts[room];
         }
         document.title = total > 0 ? '(' + total + ') Toki' : 'Toki';
+    }
+
+    function showSystemNotification(senderName, text, roomCode) {
+        if (!('Notification' in window)) return;
+        if (Notification.permission !== 'granted') return;
+        if (!document.hidden) return; // Only notify when tab is not focused
+
+        var body = text || '📎 Media';
+        if (body.length > 50) body = body.substring(0, 50) + '...';
+
+        var notification = new Notification(senderName, {
+            body: body,
+            icon: 'logo.svg',
+            tag: roomCode // Prevents duplicate notifications for same chat
+        });
+
+        notification.onclick = function() {
+            window.focus();
+            selectChat(roomCode);
+            notification.close();
+        };
+
+        // Auto-close after 5 seconds
+        setTimeout(function() { notification.close(); }, 5000);
     }
 
     function handlePeerConnected(peerId, roomCode, name) {
