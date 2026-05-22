@@ -229,8 +229,9 @@ body {
     }
     .messages { flex: 1; min-height: 0; overflow-y: auto; padding-bottom: 80px; }
     .message-input {
-        position: fixed; bottom: 0; left: 0; right: 0; background: #fff;
-        padding: 0.5rem; border-top: 2px solid #667eea; z-index: 100;
+        position: fixed !important; bottom: 0 !important; left: 0 !important; right: 0 !important;
+        background: #fff; padding: 0.5rem; border-top: 2px solid #667eea;
+        z-index: 100 !important; display: flex !important;
     }
     .message-input input[type="text"] { font-size: 16px; padding: 0.9rem 1.2rem; }
     #sendBtn { padding: 0.6rem 1rem; font-size: 0.9rem; }
@@ -662,3 +663,20 @@ body.theme-elmwood .unread-badge { background: #c9a84c; color: #1a3c2a; }
 body.theme-elmwood .back-btn { color: #c9a84c; -webkit-text-stroke-color: #c9a84c; }
 body.theme-elmwood .messages { position: relative; z-index: 1; }
 body.theme-elmwood .chat-item-time { color: #8fbc8f; }
+
+/* Gift Box Animation */
+.msg-giftbox {
+    font-size: 4rem; text-align: center; cursor: pointer;
+    animation: giftWiggle 1s ease-in-out infinite;
+    transition: transform 0.3s;
+}
+.msg-giftbox:hover { transform: scale(1.1); }
+.msg-giftbox.opened { animation: none; font-size: 3rem; }
+.giftbox-label { font-size: 0.7rem; color: #636e72; margin-top: 0.3rem; }
+@keyframes giftWiggle {
+    0%, 100% { transform: rotate(0deg); }
+    25% { transform: rotate(-5deg); }
+    75% { transform: rotate(5deg); }
+}
+#animBtn { background: #f0f2f5; font-size: 1.2rem; padding: 0.5rem 0.7rem; border-radius: 50%; }
+#animBtn:hover { background: #e0e0e0; }
