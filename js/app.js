@@ -592,7 +592,9 @@
                     '<span class="reply-name">' + escapeHtml(msg.replyTo.senderName || '') + '</span>' +
                     '<span class="reply-text">' + escapeHtml(msg.replyTo.text || '📎 Media') + '</span></div>';
             }
-            if (msg.location) {
+            if (msg.animation === 'giftbox') {
+                html += '<div class="msg-giftbox" data-msg-idx="' + idx + '">🎁<div class="giftbox-label">Tap to open!</div></div>';
+            } else if (msg.location) {
                 var mapLink = 'https://www.google.com/maps?q=' + msg.location.lat + ',' + msg.location.lng;
                 var mapImg = 'https://maps.googleapis.com/maps/api/staticmap?center=' + msg.location.lat + ',' + msg.location.lng + '&zoom=15&size=250x150&markers=color:red%7C' + msg.location.lat + ',' + msg.location.lng + '&key=';
                 // Fallback to OpenStreetMap embed iframe
@@ -635,6 +637,17 @@
             el.addEventListener('dblclick', function(e) {
                 e.preventDefault();
                 showDeleteMenu(e, parseInt(el.dataset.msgIdx));
+            });
+        });
+
+        // Gift box click handler
+        container.querySelectorAll('.msg-giftbox').forEach(function(box) {
+            box.addEventListener('click', function(e) {
+                e.stopPropagation();
+                if (box.classList.contains('opened')) return;
+                box.classList.add('opened');
+                box.innerHTML = '🎊';
+                showConfettiExplosion(box);
             });
         });
     }
@@ -1183,6 +1196,116 @@
     // Emoji picker
     var emojis = ['😊','😂','❤️','👍','👎','🙏','🔥','🎉','😢','😮','😡','🤔','👋','💯','✅','❌','⭐','🙌','💪','😎','🥳','😍','🤣','😭','😱','🤝','👏','💀','🫡','😴'];
 
+    // Send Animation (Gift Box)
+    document.getElementById('animBtn').addEventListener('click', function() {
+        if (!currentRoom) return;
+        var msg = {
+            type: 'message',
+            roomCode: currentRoom,
+            sender: account.peerId,
+            senderName: account.username,
+            text: '',
+            animation: 'giftbox',
+            msgId: Date.now() + '-' + Math.random().toString(36).substr(2, 5),
+            delivered: false,
+            read: false,
+            timestamp: Date.now()
+        };
+        if (replyingTo) {
+            msg.replyTo = replyingTo;
+            replyingTo = null;
+            hideReplyPreview();
+        }
+        Storage.saveMessage(currentRoom, msg);
+        PeerManager.sendMessage(currentRoom, msg);
+        renderMessages(currentRoom);
+        renderChatList();
+    });
+
+    function playExplosionSound() {
+        try {
+            var ctx = new (window.AudioContext || window.webkitAudioContext)();
+            // Create multiple pops
+            for (var i = 0; i < 5; i++) {
+                (function(delay) {
+                    setTimeout(function() {
+                        var osc = ctx.createOscillator();
+                        var gain = ctx.createGain();
+                        osc.connect(gain);
+                        gain.connect(ctx.destination);
+                        osc.frequency.value = 200 + Math.random() * 400;
+                        osc.type = 'square';
+                        gain.gain.setValueAtTime(0.3, ctx.currentTime);
+                        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.15);
+                        osc.start(ctx.currentTime);
+                        osc.stop(ctx.currentTime + 0.15);
+                    }, delay);
+                })(i * 150 + Math.random() * 100);
+            }
+        } catch(e) {}
+    }
+
+    function showConfettiExplosion(element) {
+        playExplosionSound();
+        var colors = ['#ff0000','#ffd700','#00ff00','#00bfff','#ff69b4','#ff8c00','#9400d3'];
+        var container = document.createElement('div');
+        container.style.cssText = 'position:fixed;inset:0;pointer-events:none;z-index:9999;overflow:hidden;';
+        document.body.appendChild(container);
+
+        var rect = element.getBoundingClientRect();
+        var cx = rect.left + rect.width / 2;
+        var cy = rect.top + rect.height / 2;
+
+        for (var i = 0; i < 60; i++) {
+            var particle = document.createElement('div');
+            var color = colors[Math.floor(Math.random() * colors.length)];
+            var size = 6 + Math.random() * 10;
+            var angle = Math.random() * Math.PI * 2;
+            var velocity = 100 + Math.random() * 300;
+            var dx = Math.cos(angle) * velocity;
+            var dy = Math.sin(angle) * velocity;
+            var shape = Math.random() > 0.5 ? '50%' : '0';
+
+            particle.style.cssText = 'position:absolute;width:' + size + 'px;height:' + size + 'px;' +
+                'background:' + color + ';border-radius:' + shape + ';' +
+                'left:' + cx + 'px;top:' + cy + 'px;' +
+                'transition:all 1.5s cubic-bezier(0.25,0.46,0.45,0.94);opacity:1;';
+            container.appendChild(particle);
+
+            setTimeout(function(p, x, y) {
+                return function() {
+                    p.style.left = (cx + x) + 'px';
+                    p.style.top = (cy + y + 200) + 'px';
+                    p.style.opacity = '0';
+                    p.style.transform = 'rotate(' + (Math.random() * 720) + 'deg)';
+                };
+            }(particle, dx, dy), 10);
+        }
+
+        // Add sparkle emojis
+        var sparkles = ['✨','🎆','🎇','💥','🌟'];
+        for (var j = 0; j < 8; j++) {
+            var spark = document.createElement('div');
+            var sAngle = Math.random() * Math.PI * 2;
+            var sDist = 50 + Math.random() * 150;
+            spark.style.cssText = 'position:absolute;font-size:2rem;' +
+                'left:' + cx + 'px;top:' + cy + 'px;' +
+                'transition:all 1s ease-out;opacity:1;';
+            spark.textContent = sparkles[Math.floor(Math.random() * sparkles.length)];
+            container.appendChild(spark);
+
+            setTimeout(function(s, sx, sy) {
+                return function() {
+                    s.style.left = (cx + sx) + 'px';
+                    s.style.top = (cy + sy) + 'px';
+                    s.style.opacity = '0';
+                };
+            }(spark, Math.cos(sAngle) * sDist, Math.sin(sAngle) * sDist), 10);
+        }
+
+        setTimeout(function() { container.remove(); }, 2000);
+    }
+
     document.getElementById('emojiBtn').addEventListener('click', function() {
         var existing = document.getElementById('emojiPicker');
         if (existing) { existing.remove(); return; }
@@ -1401,7 +1524,7 @@
     function handleIncomingMessage(data) {
         if (data.type === 'message' && data.roomCode) {
             // Only process if it has content
-            if (!data.sender || (!data.text && !data.media && !data.location)) return;
+            if (!data.sender || (!data.text && !data.media && !data.location && !data.animation)) return;
 
             // Deduplicate - skip if we already processed this message
             if (data.msgId && !data.isLiveLocationUpdate) {
