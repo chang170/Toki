@@ -229,8 +229,8 @@ body {
     }
     .messages { flex: 1; min-height: 0; overflow-y: auto; padding-bottom: 80px; }
     .message-input {
-        position: sticky; bottom: 0; background: #fff;
-        padding: 0.5rem; border-top: 2px solid #667eea; z-index: 10;
+        position: fixed; bottom: 0; left: 0; right: 0; background: #fff;
+        padding: 0.5rem; border-top: 2px solid #667eea; z-index: 100;
     }
     .message-input input[type="text"] { font-size: 16px; padding: 0.9rem 1.2rem; }
     #sendBtn { padding: 0.6rem 1rem; font-size: 0.9rem; }
