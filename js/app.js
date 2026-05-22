@@ -223,6 +223,7 @@
             sorted.forEach(function(call) {
                 var icon, iconClass;
                 if (call.type === 'missed') { icon = '📵'; iconClass = 'missed'; }
+                else if (call.type === 'rejected') { icon = '🚫'; iconClass = 'missed'; }
                 else if (call.type === 'outgoing') { icon = '📤'; iconClass = 'outgoing'; }
                 else { icon = '📥'; iconClass = 'incoming'; }
 
@@ -1894,12 +1895,22 @@
 
     // Handle incoming calls via PeerManager callback
     PeerManager.onIncomingCall = function(call) {
+        var callerName = call.peer;
         document.getElementById('incomingCall').hidden = false;
-        document.getElementById('incomingCaller').textContent = call.peer;
+        document.getElementById('incomingCaller').textContent = callerName;
         document.getElementById('incomingType').textContent = 'Incoming call...';
+
+        // Auto-log as missed (will update if answered)
+        var missedIdx = callLog.length;
+        logCall(callerName, 'missed', 0);
 
         document.getElementById('acceptCallBtn').onclick = function() {
             document.getElementById('incomingCall').hidden = true;
+            // Update log from missed to incoming
+            callLog[missedIdx].type = 'incoming';
+            callStartTime = Date.now();
+            localStorage.setItem('toki_calllog', JSON.stringify(callLog));
+
             var constraints = { audio: true, video: true };
             navigator.mediaDevices.getUserMedia(constraints).then(function(stream) {
                 localStream = stream;
@@ -1922,8 +1933,18 @@
 
         document.getElementById('declineCallBtn').onclick = function() {
             document.getElementById('incomingCall').hidden = true;
+            // Update log to rejected
+            callLog[missedIdx].type = 'rejected';
+            localStorage.setItem('toki_calllog', JSON.stringify(callLog));
             call.close();
         };
+
+        // If not answered within 30 seconds, dismiss and keep as missed
+        setTimeout(function() {
+            if (document.getElementById('incomingCall').hidden === false) {
+                document.getElementById('incomingCall').hidden = true;
+            }
+        }, 30000);
     };
 
     // Call controls
@@ -1944,6 +1965,14 @@
     });
 
     document.getElementById('hangupBtn').addEventListener('click', function() {
+        // Send hangup signal to the other side
+        if (currentRoom) {
+            PeerManager.sendMessage(currentRoom, {
+                type: 'hangup',
+                sender: account.peerId,
+                roomCode: currentRoom
+            });
+        }
         endCall();
     });
 
@@ -1984,6 +2013,19 @@
             localStorage.setItem('toki_calllog', JSON.stringify(callLog));
             callStartTime = null;
         }
+
+        // Send hangup signal to peer
+        if (currentRoom) {
+            PeerManager.sendMessage(currentRoom, {
+                type: 'hangup',
+                sender: account.peerId
+            });
+        }
+
+        endCallLocal();
+    }
+
+    function endCallLocal() {
         if (currentCall) { currentCall.close(); currentCall = null; }
         if (localStream) {
             localStream.getTracks().forEach(function(t) { t.stop(); });
@@ -2089,6 +2131,9 @@
             if (data.invitedPeer === account.peerId || !data.invitedPeer) {
                 handleInvite(data);
             }
+        } else if (data.type === 'hangup') {
+            // Other side ended the call
+            endCall();
         } else if (data.type === 'deleteGroup') {
             // Handle group deletion from creator
             if (data.roomCode) {
@@ -2104,6 +2149,28 @@
                 renderChatList();
                 alert(data.senderName + ' deleted the group.');
             }
+        } else if (data.type === 'hangup') {
+            // Other side ended the call
+            if (currentCall) {
+                currentCall.close();
+                currentCall = null;
+            }
+            if (localStream) {
+                localStream.getTracks().forEach(function(t) { t.stop(); });
+                localStream = null;
+            }
+            document.getElementById('callScreen').classList.remove('active');
+            document.getElementById('localVideo').srcObject = null;
+            document.getElementById('remoteVideo').srcObject = null;
+            document.getElementById('incomingCall').hidden = true;
+            if (callStartTime && callLog.length > 0) {
+                var duration = Math.floor((Date.now() - callStartTime) / 1000);
+                callLog[callLog.length - 1].duration = duration;
+                localStorage.setItem('toki_calllog', JSON.stringify(callLog));
+                callStartTime = null;
+            }
+            micEnabled = true;
+            camEnabled = true;
         } else if (data.type === 'delete') {
             // Handle delete for everyone
             if (data.msgId && data.roomCode) {
@@ -2121,6 +2188,11 @@
                 if (currentRoom === data.roomCode) {
                     renderMessages(data.roomCode);
                 }
+            }
+        } else if (data.type === 'hangup') {
+            // Other side ended the call
+            if (currentCall) {
+                endCallLocal();
             }
         } else if (data.type === 'receipt') {
             // Update message status
