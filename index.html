@@ -7,7 +7,7 @@
     <meta http-equiv="Pragma" content="no-cache">
     <meta http-equiv="Expires" content="0">
     <title>Toki</title>
-    <link rel="stylesheet" href="css/styles.css?v=36"></head>
+    <link rel="stylesheet" href="css/styles.css?v=37"></head>
 <body>
     <!-- Login/Signup Screen -->
     <div id="authScreen" class="screen active">
@@ -67,6 +67,10 @@
                     <button id="locationBtn" title="Share location">📍</button>
                     <input type="text" id="messageText" placeholder="Type a message..." autocomplete="off">
                     <button id="sendBtn">Send</button>
+                </div>
+                <div class="nav-input" id="navInputArea">
+                    <button class="nav-input-btn active" data-view="chats">💬 Chats</button>
+                    <button class="nav-input-btn" data-view="calls">📞 Calls</button>
                 </div>
             </div>
         </div>
@@ -146,12 +150,6 @@
         </div>
     </div>
 
-    <!-- Bottom Nav (outside all containers for mobile fixed positioning) -->
-    <div class="bottom-nav" id="bottomNav">
-        <button class="bottom-nav-btn active" data-view="chats">💬 Chats</button>
-        <button class="bottom-nav-btn" data-view="calls">📞 Calls</button>
-    </div>
-
     <!-- Video Call Screen -->
     <div id="callScreen" class="call-screen">
         <div class="call-videos">
@@ -184,6 +182,6 @@
     <script src="js/storage.js?v=17"></script>
     <script src="js/presence.js?v=17"></script>
     <script src="js/peer.js?v=17"></script>
-    <script src="js/app.js?v=30"></script>
+    <script src="js/app.js?v=31"></script>
 </body>
 </html>
