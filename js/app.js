@@ -747,9 +747,11 @@
                 if (msg.read) {
                     checkMark = '<span class="msg-check read">✓✓</span>';
                 } else if (msg.delivered) {
-                    checkMark = '<span class="msg-check delivered">✓✓</span>';
-                } else {
+                    checkMark = '<span class="msg-check delivered">✓</span><span class="msg-check sent">✓</span>';
+                } else if (msg.sent) {
                     checkMark = '<span class="msg-check sent">✓</span>';
+                } else {
+                    checkMark = '<span class="msg-check buffered">○</span>';
                 }
             }
             html += '<div class="msg-time">' + formatTime(msg.timestamp) + ' ' + checkMark + '</div>';
@@ -1185,11 +1187,11 @@
         if (e.key === 'Enter') sendMessage();
     });
 
+    var messageBuffer = {}; // roomCode -> [messages]
+
     function sendMessage() {
         var text = document.getElementById('messageText').value.trim();
         if (!text || !currentRoom) return;
-
-        console.log('Sending message to room:', currentRoom, 'connections:', PeerManager.getConnectedPeers(currentRoom));
 
         var msg = {
             type: 'message',
@@ -1200,7 +1202,8 @@
             timestamp: Date.now(),
             msgId: Date.now() + '-' + Math.random().toString(36).substr(2, 5),
             delivered: false,
-            read: false
+            read: false,
+            sent: false
         };
 
         // Include reply reference if replying
@@ -1210,12 +1213,46 @@
             hideReplyPreview();
         }
 
+        // Check if peer is connected
+        var connected = PeerManager.getConnectedPeers(currentRoom) > 0;
+        if (connected) {
+            msg.sent = true;
+            PeerManager.sendMessage(currentRoom, msg);
+        } else {
+            // Buffer the message
+            if (!messageBuffer[currentRoom]) messageBuffer[currentRoom] = [];
+            messageBuffer[currentRoom].push(msg);
+        }
+
         Storage.saveMessage(currentRoom, msg);
-        PeerManager.sendMessage(currentRoom, msg);
         renderMessages(currentRoom);
         renderChatList();
         document.getElementById('messageText').value = '';
     }
+
+    // Monitor for peer coming online and flush buffer
+    setInterval(function() {
+        for (var room in messageBuffer) {
+            if (messageBuffer[room].length > 0 && PeerManager.getConnectedPeers(room) > 0) {
+                // Peer is now online, send buffered messages
+                messageBuffer[room].forEach(function(msg) {
+                    msg.sent = true;
+                    PeerManager.sendMessage(room, msg);
+                    // Update in storage
+                    var msgs = Storage.getMessages(room);
+                    for (var i = 0; i < msgs.length; i++) {
+                        if (msgs[i].msgId === msg.msgId) {
+                            msgs[i].sent = true;
+                            break;
+                        }
+                    }
+                    localStorage.setItem('messenger_msgs_' + room, JSON.stringify(msgs));
+                });
+                messageBuffer[room] = [];
+                if (currentRoom === room) renderMessages(room);
+            }
+        }
+    }, 3000);
 
     function showReplyPreview() {
         var existing = document.getElementById('replyPreview');
@@ -2228,16 +2265,33 @@
                 endCallLocal();
             }
         } else if (data.type === 'receipt') {
-            // Update message status
+            // Update message status - track per user for group chats
             var msgs = Storage.getMessages(data.roomCode);
             var updated = false;
             for (var i = 0; i < msgs.length; i++) {
                 if (msgs[i].msgId === data.msgId) {
+                    // Track receipts per user
+                    if (!msgs[i].receipts) msgs[i].receipts = {};
+                    if (!msgs[i].receipts[data.sender]) msgs[i].receipts[data.sender] = {};
+
                     if (data.receiptType === 'delivered') {
+                        msgs[i].receipts[data.sender].delivered = true;
                         msgs[i].delivered = true;
                     } else if (data.receiptType === 'read') {
+                        msgs[i].receipts[data.sender].delivered = true;
+                        msgs[i].receipts[data.sender].read = true;
                         msgs[i].delivered = true;
-                        msgs[i].read = true;
+
+                        // Check if ALL users have read (for group chats)
+                        var totalPeers = PeerManager.getConnectedPeers(data.roomCode);
+                        var readCount = 0;
+                        for (var peer in msgs[i].receipts) {
+                            if (msgs[i].receipts[peer].read) readCount++;
+                        }
+                        // Mark as fully read if all connected peers have read
+                        if (readCount >= totalPeers || totalPeers <= 1) {
+                            msgs[i].read = true;
+                        }
                     }
                     updated = true;
                     break;
