@@ -1218,19 +1218,27 @@
         var chats = Storage.getChats();
         var chat = chats.find(function(c) { return c.roomCode === currentRoom; });
         if (chat && chat.directPeer) {
-            // Check online users list for this peer
             var onlineList = document.querySelectorAll('.online-user');
             onlineList.forEach(function(el) {
                 if (el.dataset.peer === chat.directPeer) receiverOnline = true;
             });
         } else {
-            // Group chat - check if any peer is connected
             receiverOnline = PeerManager.getConnectedPeers(currentRoom) > 0;
         }
 
         if (receiverOnline) {
             msg.sent = true;
-            PeerManager.sendMessage(currentRoom, msg);
+            // Try existing connection first
+            var sent = PeerManager.sendMessage(currentRoom, msg);
+            if (!sent && chat && chat.directPeer) {
+                // Connection dead, reconnect and send
+                var conn = PeerManager.peer.connect(chat.directPeer, { reliable: true });
+                conn.on('open', function() {
+                    if (!PeerManager.connections[currentRoom]) PeerManager.connections[currentRoom] = [];
+                    PeerManager.connections[currentRoom].push(conn);
+                    conn.send(msg);
+                });
+            }
         } else {
             // Buffer the message
             if (!messageBuffer[currentRoom]) messageBuffer[currentRoom] = [];
