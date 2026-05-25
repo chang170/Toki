@@ -1233,23 +1233,36 @@
     // Monitor for peer coming online and flush buffer
     setInterval(function() {
         for (var room in messageBuffer) {
-            if (messageBuffer[room].length > 0 && PeerManager.getConnectedPeers(room) > 0) {
-                // Peer is now online, send buffered messages
-                messageBuffer[room].forEach(function(msg) {
-                    msg.sent = true;
-                    PeerManager.sendMessage(room, msg);
-                    // Update in storage
-                    var msgs = Storage.getMessages(room);
-                    for (var i = 0; i < msgs.length; i++) {
-                        if (msgs[i].msgId === msg.msgId) {
-                            msgs[i].sent = true;
-                            break;
-                        }
+            if (messageBuffer[room].length > 0) {
+                var connected = PeerManager.getConnectedPeers(room) > 0;
+
+                // Try to reconnect if not connected
+                if (!connected) {
+                    var chats = Storage.getChats();
+                    var chat = chats.find(function(c) { return c.roomCode === room; });
+                    if (chat && chat.directPeer) {
+                        PeerManager.connectToPeer(chat.directPeer, room);
                     }
-                    localStorage.setItem('messenger_msgs_' + room, JSON.stringify(msgs));
-                });
-                messageBuffer[room] = [];
-                if (currentRoom === room) renderMessages(room);
+                }
+
+                if (connected) {
+                    // Peer is now online, send buffered messages
+                    messageBuffer[room].forEach(function(msg) {
+                        msg.sent = true;
+                        PeerManager.sendMessage(room, msg);
+                        // Update in storage
+                        var msgs = Storage.getMessages(room);
+                        for (var i = 0; i < msgs.length; i++) {
+                            if (msgs[i].msgId === msg.msgId) {
+                                msgs[i].sent = true;
+                                break;
+                            }
+                        }
+                        localStorage.setItem('messenger_msgs_' + room, JSON.stringify(msgs));
+                    });
+                    messageBuffer[room] = [];
+                    if (currentRoom === room) renderMessages(room);
+                }
             }
         }
     }, 3000);
