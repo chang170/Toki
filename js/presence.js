@@ -105,6 +105,73 @@ var Presence = {
         xhr.send(JSON.stringify(inviteData));
     },
 
+    // Register account in Firebase
+    registerAccount: function(username, passwordHash, peerId, callback) {
+        var key = username.toLowerCase().replace(/[^a-z0-9]/g, '_');
+        var xhr = new XMLHttpRequest();
+        xhr.open('GET', this.dbUrl + '/accounts/' + key + '.json', false);
+        xhr.send();
+        if (xhr.status === 200 && xhr.responseText !== 'null') {
+            // Account exists
+            callback(false, 'exists');
+            return;
+        }
+        // Create account
+        var data = JSON.stringify({ username: username, passwordHash: passwordHash, peerId: peerId, created: Date.now() });
+        var xhr2 = new XMLHttpRequest();
+        xhr2.open('PUT', this.dbUrl + '/accounts/' + key + '.json', false);
+        xhr2.setRequestHeader('Content-Type', 'application/json');
+        xhr2.send(data);
+        callback(true);
+    },
+
+    // Login with Firebase
+    loginAccount: function(username, password) {
+        var key = username.toLowerCase().replace(/[^a-z0-9]/g, '_');
+        var xhr = new XMLHttpRequest();
+        xhr.open('GET', this.dbUrl + '/accounts/' + key + '.json', false);
+        xhr.send();
+        if (xhr.status === 200 && xhr.responseText !== 'null') {
+            var data = JSON.parse(xhr.responseText);
+            if (data.passwordHash === CryptoUtil.hashPassword(password)) {
+                return data;
+            }
+            return null; // Wrong password
+        }
+        return undefined; // Account not found
+    },
+
+    // Update peer ID in Firebase account
+    updatePeerId: function(username, peerId) {
+        var key = username.toLowerCase().replace(/[^a-z0-9]/g, '_');
+        var xhr = new XMLHttpRequest();
+        xhr.open('GET', this.dbUrl + '/accounts/' + key + '.json', false);
+        xhr.send();
+        if (xhr.status === 200 && xhr.responseText !== 'null') {
+            var data = JSON.parse(xhr.responseText);
+            data.peerId = peerId;
+            var xhr2 = new XMLHttpRequest();
+            xhr2.open('PUT', this.dbUrl + '/accounts/' + key + '.json', false);
+            xhr2.setRequestHeader('Content-Type', 'application/json');
+            xhr2.send(JSON.stringify(data));
+        }
+    },
+
+    // Check if a specific peer is online
+    isPeerOnline: function(peerId) {
+        var key = peerId.replace(/[.#$\[\]\/]/g, '_');
+        var xhr = new XMLHttpRequest();
+        xhr.open('GET', this.dbUrl + '/presence/' + key + '.json', false); // synchronous
+        xhr.send();
+        if (xhr.status === 200) {
+            var data = JSON.parse(xhr.responseText);
+            if (data && (Date.now() - data.lastSeen) < 30000) {
+                return true;
+            }
+        }
+        return false;
+    },
+
     // Check for pending invites
     checkInvites: function(myPeerId, callback) {
         var self = this;

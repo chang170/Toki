@@ -47,11 +47,28 @@
         var password = document.getElementById('authPassword').value;
         if (!username || !password) { alert('Enter username and password.'); return; }
 
+        // Try local first
         var existing = Storage.getAccount();
         if (existing && existing.username === username && existing.passwordHash === CryptoUtil.hashPassword(password)) {
             account = existing;
+            Presence.updatePeerId(username, account.peerId);
             showChatScreen();
-        } else if (existing) {
+            return;
+        }
+
+        // Try Firebase
+        var fbAccount = Presence.loginAccount(username, password);
+        if (fbAccount) {
+            account = {
+                username: fbAccount.username,
+                passwordHash: fbAccount.passwordHash,
+                peerId: CryptoUtil.generatePeerId(username),
+                created: new Date(fbAccount.created).toISOString()
+            };
+            Storage.saveAccount(account);
+            Presence.updatePeerId(username, account.peerId);
+            showChatScreen();
+        } else if (fbAccount === null) {
             alert('Incorrect password.');
         } else {
             alert('No account found. Click "Create Account" to make one.');
@@ -69,38 +86,26 @@
             if (!confirm('An account already exists on this device. Replace it?')) return;
         }
 
-        // Check if username already exists in Firebase
-        var xhr = new XMLHttpRequest();
-        xhr.open('GET', Presence.dbUrl + '/presence.json', true);
-        xhr.onload = function() {
-            var nameTaken = false;
-            if (xhr.status === 200) {
-                var data = JSON.parse(xhr.responseText);
-                if (data) {
-                    for (var key in data) {
-                        if (data[key].username && data[key].username.toLowerCase() === username.toLowerCase()) {
-                            nameTaken = true;
-                            break;
-                        }
-                    }
-                }
-            }
+        var peerId = CryptoUtil.generatePeerId(username);
+        var passwordHash = CryptoUtil.hashPassword(password);
 
-            if (nameTaken) {
+        // Register in Firebase
+        Presence.registerAccount(username, passwordHash, peerId, function(success, reason) {
+            if (!success && reason === 'exists') {
                 alert('A user with the name "' + username + '" already exists. Please choose a different name.');
                 return;
             }
 
             account = {
                 username: username,
-                passwordHash: CryptoUtil.hashPassword(password),
-                peerId: CryptoUtil.generatePeerId(username),
+                passwordHash: passwordHash,
+                peerId: peerId,
                 created: new Date().toISOString()
             };
             Storage.saveAccount(account);
             showChatScreen();
-        };
-        xhr.send();
+        });
+    });
     });
 
     // Import identity
