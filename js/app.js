@@ -1218,7 +1218,7 @@
         var chats = Storage.getChats();
         var chat = chats.find(function(c) { return c.roomCode === currentRoom; });
         if (chat && chat.directPeer) {
-            var onlineList = document.querySelectorAll('.online-user');
+            var onlineList = document.querySelectorAll('.online-user:not(.offline)');
             onlineList.forEach(function(el) {
                 if (el.dataset.peer === chat.directPeer) receiverOnline = true;
             });
@@ -1261,7 +1261,7 @@
                 var receiverOnline = false;
 
                 if (chat && chat.directPeer) {
-                    var onlineList = document.querySelectorAll('.online-user');
+                    var onlineList = document.querySelectorAll('.online-user:not(.offline)');
                     onlineList.forEach(function(el) {
                         if (el.dataset.peer === chat.directPeer) receiverOnline = true;
                     });
