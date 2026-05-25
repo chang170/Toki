@@ -96,10 +96,14 @@ var PeerManager = {
         var self = this;
         if (remotePeerId === this.myPeerId) return;
         
+        // Clean up dead connections first
+        if (this.connections[roomCode]) {
+            this.connections[roomCode] = this.connections[roomCode].filter(function(c) { return c.open; });
+        }
+
         // Don't connect if already connected to this peer in this room
         var existing = (this.connections[roomCode] || []).filter(function(c) { return c.peer === remotePeerId && c.open; });
         if (existing.length > 0) {
-            console.log('Already connected to:', remotePeerId);
             return;
         }
         
