@@ -1261,15 +1261,34 @@
 
                 if (!receiverOnline) continue;
 
-                // Try to reconnect if not connected via P2P
+                // Receiver is online - try to connect and send
                 var connected = PeerManager.getConnectedPeers(room) > 0;
                 if (!connected && chat && chat.directPeer) {
-                    PeerManager.connectToPeer(chat.directPeer, room);
-                    continue; // Wait for next cycle to send
-                }
-
-                if (connected) {
-                    // Peer is now online, send buffered messages
+                    // Connect and flush after connection establishes
+                    (function(r, msgs, peer) {
+                        var conn = PeerManager.peer.connect(peer, { reliable: true });
+                        conn.on('open', function() {
+                            if (!PeerManager.connections[r]) PeerManager.connections[r] = [];
+                            PeerManager.connections[r].push(conn);
+                            // Send all buffered messages
+                            msgs.forEach(function(msg) {
+                                msg.sent = true;
+                                conn.send(msg);
+                                var stored = Storage.getMessages(r);
+                                for (var i = 0; i < stored.length; i++) {
+                                    if (stored[i].msgId === msg.msgId) {
+                                        stored[i].sent = true;
+                                        break;
+                                    }
+                                }
+                                localStorage.setItem('messenger_msgs_' + r, JSON.stringify(stored));
+                            });
+                            messageBuffer[r] = [];
+                            if (currentRoom === r) renderMessages(r);
+                        });
+                    })(room, messageBuffer[room], chat.directPeer);
+                } else if (connected) {
+                    // Already connected, flush now
                     var flushed = [];
                     messageBuffer[room].forEach(function(msg) {
                         var ok = PeerManager.sendMessage(room, msg);
@@ -1293,7 +1312,7 @@
                 }
             }
         }
-    }, 3000);
+    }, 5000);
 
     function showReplyPreview() {
         var existing = document.getElementById('replyPreview');
