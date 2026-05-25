@@ -23,7 +23,8 @@ var PeerManager = {
                     { urls: 'stun:stun.l.google.com:19302' },
                     { urls: 'stun:stun1.l.google.com:19302' },
                     { urls: 'turn:openrelay.metered.ca:80', username: 'openrelayproject', credential: 'openrelayproject' },
-                    { urls: 'turn:openrelay.metered.ca:443', username: 'openrelayproject', credential: 'openrelayproject' }
+                    { urls: 'turn:openrelay.metered.ca:443', username: 'openrelayproject', credential: 'openrelayproject' },
+                    { urls: 'turn:openrelay.metered.ca:443?transport=tcp', username: 'openrelayproject', credential: 'openrelayproject' }
                 ]
             }
         });
@@ -80,7 +81,22 @@ var PeerManager = {
 
     handleIncoming: function(conn) {
         var self = this;
+        
+        // Store connection immediately under matching DM rooms
+        var chats = JSON.parse(localStorage.getItem('messenger_chats') || '[]');
+        chats.forEach(function(chat) {
+            if (chat.directPeer === conn.peer) {
+                if (!self.connections[chat.roomCode]) self.connections[chat.roomCode] = [];
+                if (!self.connections[chat.roomCode].some(function(c) { return c.peer === conn.peer; })) {
+                    self.connections[chat.roomCode].push(conn);
+                    console.log('Stored incoming connection under:', chat.roomCode);
+                }
+                if (self.onPeerConnected) self.onPeerConnected(conn.peer, chat.roomCode);
+            }
+        });
+
         conn.on('open', function() {
+            console.log('Incoming connection opened from:', conn.peer);
             conn.on('data', function(data) {
                 self.handleData(conn, data);
             });
@@ -88,21 +104,11 @@ var PeerManager = {
                 self.removeConnection(conn);
                 if (self.onPeerDisconnected) self.onPeerDisconnected(conn.peer);
             });
+        });
 
-            // Also store connection under any local DM room with this peer
-            var chats = JSON.parse(localStorage.getItem('messenger_chats') || '[]');
-            console.log('Incoming open from:', conn.peer, 'checking', chats.length, 'chats');
-            chats.forEach(function(chat) {
-                console.log('  Chat:', chat.name, 'directPeer:', chat.directPeer, 'match:', chat.directPeer === conn.peer);
-                if (chat.directPeer === conn.peer) {
-                    if (!self.connections[chat.roomCode]) self.connections[chat.roomCode] = [];
-                    if (!self.connections[chat.roomCode].some(function(c) { return c.peer === conn.peer; })) {
-                        self.connections[chat.roomCode].push(conn);
-                        console.log('  Stored connection under:', chat.roomCode);
-                    }
-                    if (self.onPeerConnected) self.onPeerConnected(conn.peer, chat.roomCode);
-                }
-            });
+        // Also listen for data even before 'open' (some browsers fire data before open)
+        conn.on('data', function(data) {
+            self.handleData(conn, data);
         });
     },
 
