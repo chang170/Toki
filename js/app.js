@@ -1257,7 +1257,7 @@
     setInterval(function() {
         for (var room in messageBuffer) {
             if (messageBuffer[room].length > 0) {
-                // Check if receiver is online via Firebase
+                // Check if receiver is online via DOM
                 var chats = Storage.getChats();
                 var chat = chats.find(function(c) { return c.roomCode === room; });
                 var receiverOnline = false;
@@ -1273,17 +1273,22 @@
 
                 if (!receiverOnline) continue;
 
-                // Receiver is online - try to connect and send
-                var connected = PeerManager.getConnectedPeers(room) > 0;
-                if (!connected && chat && chat.directPeer) {
-                    // Connect and flush after connection establishes
-                    (function(r, msgs, peer) {
+                // Receiver is online - connect and send
+                if (chat && chat.directPeer) {
+                    (function(r, peer) {
                         var conn = PeerManager.peer.connect(peer, { reliable: true });
                         conn.on('open', function() {
                             if (!PeerManager.connections[r]) PeerManager.connections[r] = [];
                             PeerManager.connections[r].push(conn);
-                            // Send all buffered messages
-                            msgs.forEach(function(msg) {
+
+                            conn.on('data', function(data) {
+                                PeerManager.handleData(conn, data);
+                            });
+
+                            // Flush buffer
+                            var toSend = messageBuffer[r].slice();
+                            messageBuffer[r] = [];
+                            toSend.forEach(function(msg) {
                                 msg.sent = true;
                                 conn.send(msg);
                                 var stored = Storage.getMessages(r);
@@ -1295,32 +1300,12 @@
                                 }
                                 localStorage.setItem('messenger_msgs_' + r, JSON.stringify(stored));
                             });
-                            messageBuffer[r] = [];
                             if (currentRoom === r) renderMessages(r);
                         });
-                    })(room, messageBuffer[room], chat.directPeer);
-                } else if (connected) {
-                    // Already connected, flush now
-                    var flushed = [];
-                    messageBuffer[room].forEach(function(msg) {
-                        var ok = PeerManager.sendMessage(room, msg);
-                        if (ok) {
-                            msg.sent = true;
-                            flushed.push(msg.msgId);
-                            var msgs = Storage.getMessages(room);
-                            for (var i = 0; i < msgs.length; i++) {
-                                if (msgs[i].msgId === msg.msgId) {
-                                    msgs[i].sent = true;
-                                    break;
-                                }
-                            }
-                            localStorage.setItem('messenger_msgs_' + room, JSON.stringify(msgs));
-                        }
-                    });
-                    messageBuffer[room] = messageBuffer[room].filter(function(m) {
-                        return flushed.indexOf(m.msgId) === -1;
-                    });
-                    if (flushed.length > 0 && currentRoom === room) renderMessages(room);
+                        conn.on('error', function() {
+                            // Connection failed, will retry next cycle
+                        });
+                    })(room, chat.directPeer);
                 }
             }
         }
