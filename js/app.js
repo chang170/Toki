@@ -42,7 +42,9 @@
     }
 
     // Auth handlers
-    document.getElementById('loginBtn').addEventListener('click', function() {
+    document.getElementById('loginBtn').addEventListener('click', function(e) {
+        e.preventDefault();
+        e.stopPropagation();
         var username = document.getElementById('authUsername').value.trim();
         var password = document.getElementById('authPassword').value;
         if (!username || !password) { alert('Enter username and password.'); return; }
@@ -76,7 +78,9 @@
         });
     });
 
-    document.getElementById('createBtn').addEventListener('click', function() {
+    document.getElementById('createBtn').addEventListener('click', function(e) {
+        e.preventDefault();
+        e.stopPropagation();
         var username = document.getElementById('authUsername').value.trim();
         var password = document.getElementById('authPassword').value;
         if (!username || !password) { alert('Enter username and password.'); return; }
