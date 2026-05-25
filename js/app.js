@@ -111,7 +111,6 @@
             showChatScreen();
         });
     });
-    });
 
     // Import identity
     document.getElementById('importBtn').addEventListener('click', function() {
