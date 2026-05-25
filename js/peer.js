@@ -91,11 +91,14 @@ var PeerManager = {
 
             // Also store connection under any local DM room with this peer
             var chats = JSON.parse(localStorage.getItem('messenger_chats') || '[]');
+            console.log('Incoming open from:', conn.peer, 'checking', chats.length, 'chats');
             chats.forEach(function(chat) {
+                console.log('  Chat:', chat.name, 'directPeer:', chat.directPeer, 'match:', chat.directPeer === conn.peer);
                 if (chat.directPeer === conn.peer) {
                     if (!self.connections[chat.roomCode]) self.connections[chat.roomCode] = [];
                     if (!self.connections[chat.roomCode].some(function(c) { return c.peer === conn.peer; })) {
                         self.connections[chat.roomCode].push(conn);
+                        console.log('  Stored connection under:', chat.roomCode);
                     }
                     if (self.onPeerConnected) self.onPeerConnected(conn.peer, chat.roomCode);
                 }
