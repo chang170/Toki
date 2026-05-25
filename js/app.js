@@ -1213,14 +1213,16 @@
             hideReplyPreview();
         }
 
-        // Check if receiver is online via Firebase presence
+        // Check if receiver is online via DOM (online users list)
         var receiverOnline = false;
         var chats = Storage.getChats();
         var chat = chats.find(function(c) { return c.roomCode === currentRoom; });
         if (chat && chat.directPeer) {
-            var onlineList = document.querySelectorAll('.online-user:not(.offline)');
-            onlineList.forEach(function(el) {
-                if (el.dataset.peer === chat.directPeer) receiverOnline = true;
+            var allUsers = document.querySelectorAll('.online-user');
+            allUsers.forEach(function(el) {
+                if (el.dataset.peer === chat.directPeer && !el.classList.contains('offline')) {
+                    receiverOnline = true;
+                }
             });
         } else {
             receiverOnline = PeerManager.getConnectedPeers(currentRoom) > 0;
@@ -1261,9 +1263,11 @@
                 var receiverOnline = false;
 
                 if (chat && chat.directPeer) {
-                    var onlineList = document.querySelectorAll('.online-user:not(.offline)');
-                    onlineList.forEach(function(el) {
-                        if (el.dataset.peer === chat.directPeer) receiverOnline = true;
+                    var allUsers = document.querySelectorAll('.online-user');
+                    allUsers.forEach(function(el) {
+                        if (el.dataset.peer === chat.directPeer && !el.classList.contains('offline')) {
+                            receiverOnline = true;
+                        }
                     });
                 }
 
