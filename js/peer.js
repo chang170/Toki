@@ -81,13 +81,24 @@ var PeerManager = {
     handleIncoming: function(conn) {
         var self = this;
         conn.on('open', function() {
-            // Ask for room info
             conn.on('data', function(data) {
                 self.handleData(conn, data);
             });
             conn.on('close', function() {
                 self.removeConnection(conn);
                 if (self.onPeerDisconnected) self.onPeerDisconnected(conn.peer);
+            });
+
+            // Also store connection under any local DM room with this peer
+            var chats = JSON.parse(localStorage.getItem('messenger_chats') || '[]');
+            chats.forEach(function(chat) {
+                if (chat.directPeer === conn.peer) {
+                    if (!self.connections[chat.roomCode]) self.connections[chat.roomCode] = [];
+                    if (!self.connections[chat.roomCode].some(function(c) { return c.peer === conn.peer; })) {
+                        self.connections[chat.roomCode].push(conn);
+                    }
+                    if (self.onPeerConnected) self.onPeerConnected(conn.peer, chat.roomCode);
+                }
             });
         });
     },
@@ -171,12 +182,21 @@ var PeerManager = {
     },
 
     sendMessage: function(roomCode, message) {
+        var self = this;
         var conns = this.connections[roomCode] || [];
+        var sent = false;
         conns.forEach(function(conn) {
             if (conn.open) {
-                conn.send(message);
+                try {
+                    conn.send(message);
+                    sent = true;
+                } catch(e) {
+                    // Connection dead, remove it
+                    self.removeConnection(conn);
+                }
             }
         });
+        return sent;
     },
 
     removeConnection: function(conn) {
