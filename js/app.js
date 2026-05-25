@@ -1213,9 +1213,22 @@
             hideReplyPreview();
         }
 
-        // Check if peer is connected
-        var connected = PeerManager.getConnectedPeers(currentRoom) > 0;
-        if (connected) {
+        // Check if receiver is online via Firebase presence
+        var receiverOnline = false;
+        var chats = Storage.getChats();
+        var chat = chats.find(function(c) { return c.roomCode === currentRoom; });
+        if (chat && chat.directPeer) {
+            // Check online users list for this peer
+            var onlineList = document.querySelectorAll('.online-user');
+            onlineList.forEach(function(el) {
+                if (el.dataset.peer === chat.directPeer) receiverOnline = true;
+            });
+        } else {
+            // Group chat - check if any peer is connected
+            receiverOnline = PeerManager.getConnectedPeers(currentRoom) > 0;
+        }
+
+        if (receiverOnline) {
             msg.sent = true;
             PeerManager.sendMessage(currentRoom, msg);
         } else {
@@ -1234,34 +1247,49 @@
     setInterval(function() {
         for (var room in messageBuffer) {
             if (messageBuffer[room].length > 0) {
-                var connected = PeerManager.getConnectedPeers(room) > 0;
+                // Check if receiver is online via Firebase
+                var chats = Storage.getChats();
+                var chat = chats.find(function(c) { return c.roomCode === room; });
+                var receiverOnline = false;
 
-                // Try to reconnect if not connected
-                if (!connected) {
-                    var chats = Storage.getChats();
-                    var chat = chats.find(function(c) { return c.roomCode === room; });
-                    if (chat && chat.directPeer) {
-                        PeerManager.connectToPeer(chat.directPeer, room);
-                    }
+                if (chat && chat.directPeer) {
+                    var onlineList = document.querySelectorAll('.online-user');
+                    onlineList.forEach(function(el) {
+                        if (el.dataset.peer === chat.directPeer) receiverOnline = true;
+                    });
+                }
+
+                if (!receiverOnline) continue;
+
+                // Try to reconnect if not connected via P2P
+                var connected = PeerManager.getConnectedPeers(room) > 0;
+                if (!connected && chat && chat.directPeer) {
+                    PeerManager.connectToPeer(chat.directPeer, room);
+                    continue; // Wait for next cycle to send
                 }
 
                 if (connected) {
                     // Peer is now online, send buffered messages
+                    var flushed = [];
                     messageBuffer[room].forEach(function(msg) {
-                        msg.sent = true;
-                        PeerManager.sendMessage(room, msg);
-                        // Update in storage
-                        var msgs = Storage.getMessages(room);
-                        for (var i = 0; i < msgs.length; i++) {
-                            if (msgs[i].msgId === msg.msgId) {
-                                msgs[i].sent = true;
-                                break;
+                        var ok = PeerManager.sendMessage(room, msg);
+                        if (ok) {
+                            msg.sent = true;
+                            flushed.push(msg.msgId);
+                            var msgs = Storage.getMessages(room);
+                            for (var i = 0; i < msgs.length; i++) {
+                                if (msgs[i].msgId === msg.msgId) {
+                                    msgs[i].sent = true;
+                                    break;
+                                }
                             }
+                            localStorage.setItem('messenger_msgs_' + room, JSON.stringify(msgs));
                         }
-                        localStorage.setItem('messenger_msgs_' + room, JSON.stringify(msgs));
                     });
-                    messageBuffer[room] = [];
-                    if (currentRoom === room) renderMessages(room);
+                    messageBuffer[room] = messageBuffer[room].filter(function(m) {
+                        return flushed.indexOf(m.msgId) === -1;
+                    });
+                    if (flushed.length > 0 && currentRoom === room) renderMessages(room);
                 }
             }
         }
