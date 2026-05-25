@@ -185,6 +185,18 @@
         });
 
         renderChatList();
+
+        // Auto-reconnect to all chats on startup
+        setTimeout(function() {
+            var chats = Storage.getChats();
+            chats.forEach(function(chat) {
+                if (chat.directPeer) {
+                    PeerManager.connectToPeer(chat.directPeer, chat.roomCode);
+                } else if (chat.creatorPeerId && chat.creatorPeerId !== account.peerId) {
+                    PeerManager.connectToPeer(chat.creatorPeerId, chat.roomCode);
+                }
+            });
+        }, 3000);
     }
 
     // Bottom nav (Chats / Calls)
@@ -1234,12 +1246,9 @@
             var sent = PeerManager.sendMessage(currentRoom, msg);
             if (!sent && chat && chat.directPeer) {
                 // Connection dead, reconnect and send
-                var conn = PeerManager.peer.connect(chat.directPeer, { reliable: true });
-                conn.on('open', function() {
-                    if (!PeerManager.connections[currentRoom]) PeerManager.connections[currentRoom] = [];
-                    PeerManager.connections[currentRoom].push(conn);
-                    conn.send(msg);
-                });
+                msg.sent = false;
+                if (!messageBuffer[currentRoom]) messageBuffer[currentRoom] = [];
+                messageBuffer[currentRoom].push(msg);
             }
         } else {
             // Buffer the message
@@ -2401,6 +2410,27 @@
             var peers = PeerManager.getConnectedPeers(roomCode);
             var chatStatus = document.querySelector('.chat-status');
             if (chatStatus) chatStatus.textContent = peers + ' connected';
+        }
+
+        // Flush buffered messages for this room when peer connects
+        if (messageBuffer[roomCode] && messageBuffer[roomCode].length > 0) {
+            setTimeout(function() {
+                var toSend = messageBuffer[roomCode].slice();
+                messageBuffer[roomCode] = [];
+                toSend.forEach(function(msg) {
+                    msg.sent = true;
+                    PeerManager.sendMessage(roomCode, msg);
+                    var stored = Storage.getMessages(roomCode);
+                    for (var i = 0; i < stored.length; i++) {
+                        if (stored[i].msgId === msg.msgId) {
+                            stored[i].sent = true;
+                            break;
+                        }
+                    }
+                    localStorage.setItem('messenger_msgs_' + roomCode, JSON.stringify(stored));
+                });
+                if (currentRoom === roomCode) renderMessages(roomCode);
+            }, 500);
         }
     }
 
