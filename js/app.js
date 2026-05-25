@@ -57,22 +57,23 @@
         }
 
         // Try Firebase
-        var fbAccount = Presence.loginAccount(username, password);
-        if (fbAccount) {
-            account = {
-                username: fbAccount.username,
-                passwordHash: fbAccount.passwordHash,
-                peerId: CryptoUtil.generatePeerId(username),
-                created: new Date(fbAccount.created).toISOString()
-            };
-            Storage.saveAccount(account);
-            Presence.updatePeerId(username, account.peerId);
-            showChatScreen();
-        } else if (fbAccount === null) {
-            alert('Incorrect password.');
-        } else {
-            alert('No account found. Click "Create Account" to make one.');
-        }
+        Presence.loginAccount(username, password, function(fbAccount) {
+            if (fbAccount) {
+                account = {
+                    username: fbAccount.username,
+                    passwordHash: fbAccount.passwordHash,
+                    peerId: CryptoUtil.generatePeerId(username),
+                    created: new Date(fbAccount.created).toISOString()
+                };
+                Storage.saveAccount(account);
+                Presence.updatePeerId(username, account.peerId);
+                showChatScreen();
+            } else if (fbAccount === null) {
+                alert('Incorrect password.');
+            } else {
+                alert('No account found. Click "Create Account" to make one.');
+            }
+        });
     });
 
     document.getElementById('createBtn').addEventListener('click', function() {

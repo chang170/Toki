@@ -107,54 +107,62 @@ var Presence = {
 
     // Register account in Firebase
     registerAccount: function(username, passwordHash, peerId, callback) {
+        var self = this;
         var key = username.toLowerCase().replace(/[^a-z0-9]/g, '_');
         var xhr = new XMLHttpRequest();
-        xhr.open('GET', this.dbUrl + '/accounts/' + key + '.json', false);
+        xhr.open('GET', this.dbUrl + '/accounts/' + key + '.json', true);
+        xhr.onload = function() {
+            if (xhr.status === 200 && xhr.responseText !== 'null') {
+                callback(false, 'exists');
+                return;
+            }
+            var data = JSON.stringify({ username: username, passwordHash: passwordHash, peerId: peerId, created: Date.now() });
+            var xhr2 = new XMLHttpRequest();
+            xhr2.open('PUT', self.dbUrl + '/accounts/' + key + '.json', true);
+            xhr2.setRequestHeader('Content-Type', 'application/json');
+            xhr2.onload = function() { callback(true); };
+            xhr2.send(data);
+        };
         xhr.send();
-        if (xhr.status === 200 && xhr.responseText !== 'null') {
-            // Account exists
-            callback(false, 'exists');
-            return;
-        }
-        // Create account
-        var data = JSON.stringify({ username: username, passwordHash: passwordHash, peerId: peerId, created: Date.now() });
-        var xhr2 = new XMLHttpRequest();
-        xhr2.open('PUT', this.dbUrl + '/accounts/' + key + '.json', false);
-        xhr2.setRequestHeader('Content-Type', 'application/json');
-        xhr2.send(data);
-        callback(true);
     },
 
     // Login with Firebase
-    loginAccount: function(username, password) {
+    loginAccount: function(username, password, callback) {
         var key = username.toLowerCase().replace(/[^a-z0-9]/g, '_');
         var xhr = new XMLHttpRequest();
-        xhr.open('GET', this.dbUrl + '/accounts/' + key + '.json', false);
-        xhr.send();
-        if (xhr.status === 200 && xhr.responseText !== 'null') {
-            var data = JSON.parse(xhr.responseText);
-            if (data.passwordHash === CryptoUtil.hashPassword(password)) {
-                return data;
+        xhr.open('GET', this.dbUrl + '/accounts/' + key + '.json', true);
+        xhr.onload = function() {
+            if (xhr.status === 200 && xhr.responseText !== 'null') {
+                var data = JSON.parse(xhr.responseText);
+                if (data.passwordHash === CryptoUtil.hashPassword(password)) {
+                    callback(data);
+                } else {
+                    callback(null); // Wrong password
+                }
+            } else {
+                callback(undefined); // Not found
             }
-            return null; // Wrong password
-        }
-        return undefined; // Account not found
+        };
+        xhr.send();
     },
 
     // Update peer ID in Firebase account
     updatePeerId: function(username, peerId) {
+        var self = this;
         var key = username.toLowerCase().replace(/[^a-z0-9]/g, '_');
         var xhr = new XMLHttpRequest();
-        xhr.open('GET', this.dbUrl + '/accounts/' + key + '.json', false);
+        xhr.open('GET', this.dbUrl + '/accounts/' + key + '.json', true);
+        xhr.onload = function() {
+            if (xhr.status === 200 && xhr.responseText !== 'null') {
+                var data = JSON.parse(xhr.responseText);
+                data.peerId = peerId;
+                var xhr2 = new XMLHttpRequest();
+                xhr2.open('PUT', self.dbUrl + '/accounts/' + key + '.json', true);
+                xhr2.setRequestHeader('Content-Type', 'application/json');
+                xhr2.send(JSON.stringify(data));
+            }
+        };
         xhr.send();
-        if (xhr.status === 200 && xhr.responseText !== 'null') {
-            var data = JSON.parse(xhr.responseText);
-            data.peerId = peerId;
-            var xhr2 = new XMLHttpRequest();
-            xhr2.open('PUT', this.dbUrl + '/accounts/' + key + '.json', false);
-            xhr2.setRequestHeader('Content-Type', 'application/json');
-            xhr2.send(JSON.stringify(data));
-        }
     },
 
     // Check if a specific peer is online
