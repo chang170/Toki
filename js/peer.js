@@ -67,14 +67,16 @@ var PeerManager = {
         this.peer.on('error', function(err) {
             console.error('Peer error:', err.type, err.message);
             if (err.type === 'unavailable-id') {
-                // ID temporarily taken (stale connection). Wait and retry.
-                console.log('Peer ID unavailable. Retrying in 5 seconds...');
+                // ID taken from previous session. Wait for it to expire then retry.
+                console.log('Peer ID unavailable. Retrying in 15 seconds...');
                 setTimeout(function() {
                     if (self.peer) self.peer.destroy();
                     self.init(self.myPeerId, self.myName);
-                }, 5000);
+                }, 15000);
             } else if (err.type === 'disconnected') {
                 self.peer.reconnect();
+            } else if (err.type === 'peer-unavailable') {
+                // Target peer offline, ignore
             }
         });
     },
