@@ -1,7 +1,7 @@
 (function() {
     // App version - increment to force localStorage reset on all devices
     // App version - only increment for BREAKING changes that need localStorage reset
-    var APP_VERSION = '4';
+    var APP_VERSION = '5';
     var storedVersion = localStorage.getItem('messenger_version');
     if (storedVersion !== APP_VERSION) {
         var keys = Object.keys(localStorage).filter(function(k) { return k.startsWith('messenger_'); });
@@ -507,9 +507,11 @@
     }
 
     function startDirectChat(peerId, name) {
-        // Generate a deterministic room code from both peer IDs
-        var ids = [account.peerId, peerId].sort();
-        var roomCode = 'DM.' + ids[0] + '.' + ids[1];
+        // Generate a deterministic room code from both usernames (device-independent)
+        var myName = account.username.toLowerCase().replace(/[^a-z0-9]/g, '');
+        var theirName = name.toLowerCase().replace(/[^a-z0-9]/g, '');
+        var names = [myName, theirName].sort();
+        var roomCode = 'DM.' + names[0] + '.' + names[1];
 
         // Create or find existing direct chat with this user
         var chats = Storage.getChats();
