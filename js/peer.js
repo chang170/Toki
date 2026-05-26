@@ -1,9 +1,10 @@
 /**
- * PeerJS connection management
+ * PeerJS connection management - with full diagnostic logging
  */
+
 var PeerManager = {
     peer: null,
-    connections: {},  // roomCode -> [connections]
+    connections: {},
     onMessage: null,
     onPeerConnected: null,
     onPeerDisconnected: null,
@@ -15,6 +16,8 @@ var PeerManager = {
         var self = this;
         this.myPeerId = peerId;
         this.myName = displayName;
+
+        console.log('[PEER] Initializing with ID:', peerId);
 
         this.peer = new Peer(peerId, {
             debug: 0,
@@ -30,45 +33,34 @@ var PeerManager = {
         });
 
         this.peer.on('open', function(id) {
-            console.log('Connected to signaling server. ID:', id);
+            console.log('[PEER] Connected to signaling server. ID:', id);
         });
 
         this.peer.on('disconnected', function() {
-            console.log('Disconnected from signaling server. Reconnecting...');
+            console.log('[PEER] Disconnected from signaling server. Reconnecting...');
             self.peer.reconnect();
         });
 
         this.peer.on('close', function() {
-            console.log('Peer connection closed.');
+            console.log('[PEER] Connection closed.');
         });
 
-        // Reconnect when tab becomes visible again (mobile fix)
         document.addEventListener('visibilitychange', function() {
             if (!document.hidden && self.peer) {
                 if (self.peer.disconnected) {
-                    console.log('Tab resumed. Reconnecting to signaling server...');
+                    console.log('[PEER] Tab resumed - reconnecting...');
                     self.peer.reconnect();
                 } else if (self.peer.destroyed) {
-                    console.log('Tab resumed. Peer was destroyed. Reinitializing...');
+                    console.log('[PEER] Tab resumed - reinitializing...');
                     self.init(self.myPeerId, self.myName);
                 }
             }
         });
 
-        this.peer.on('connection', function(conn) {
-            console.log('Incoming connection from:', conn.peer);
-            self.handleIncoming(conn);
-        });
-
-        this.peer.on('call', function(call) {
-            if (self.onIncomingCall) self.onIncomingCall(call);
-        });
-
         this.peer.on('error', function(err) {
-            console.error('Peer error:', err.type, err.message);
+            console.error('[PEER] Error:', err.type, err.message);
             if (err.type === 'unavailable-id') {
-                // ID taken from previous session. Wait for it to expire then retry.
-                console.log('Peer ID unavailable. Retrying in 15 seconds...');
+                console.log('[PEER] ID taken. Retrying in 15 seconds...');
                 setTimeout(function() {
                     if (self.peer) self.peer.destroy();
                     self.init(self.myPeerId, self.myName);
@@ -76,65 +68,87 @@ var PeerManager = {
             } else if (err.type === 'disconnected') {
                 self.peer.reconnect();
             } else if (err.type === 'peer-unavailable') {
-                // Target peer offline, ignore
+                console.log('[PEER] Target peer not registered on signaling server');
             }
+        });
+
+        this.peer.on('connection', function(conn) {
+            console.log('[PEER] Incoming connection from:', conn.peer);
+            self.handleIncoming(conn);
+        });
+
+        this.peer.on('call', function(call) {
+            console.log('[PEER] Incoming call from:', call.peer);
+            if (self.onIncomingCall) self.onIncomingCall(call);
         });
     },
 
     handleIncoming: function(conn) {
         var self = this;
-        
-        // Store connection immediately under matching DM rooms
-        var chats = JSON.parse(localStorage.getItem('messenger_chats') || '[]');
-        chats.forEach(function(chat) {
-            if (chat.directPeer === conn.peer) {
-                if (!self.connections[chat.roomCode]) self.connections[chat.roomCode] = [];
-                if (!self.connections[chat.roomCode].some(function(c) { return c.peer === conn.peer; })) {
-                    self.connections[chat.roomCode].push(conn);
-                    console.log('Stored incoming connection under:', chat.roomCode);
-                }
-                if (self.onPeerConnected) self.onPeerConnected(conn.peer, chat.roomCode);
-            }
-        });
+        console.log('[PEER] handleIncoming - waiting for open from:', conn.peer);
 
         conn.on('open', function() {
-            console.log('Incoming connection opened from:', conn.peer);
+            console.log('[PEER] ✓ Incoming connection OPENED from:', conn.peer);
+
             conn.on('data', function(data) {
                 self.handleData(conn, data);
             });
             conn.on('close', function() {
+                console.log('[PEER] Connection closed from:', conn.peer);
                 self.removeConnection(conn);
                 if (self.onPeerDisconnected) self.onPeerDisconnected(conn.peer);
             });
+
+            // Store connection under matching local DM room
+            var chats = JSON.parse(localStorage.getItem('messenger_chats') || '[]');
+            console.log('[PEER] Checking', chats.length, 'chats for peer:', conn.peer);
+            var matched = false;
+            chats.forEach(function(chat) {
+                if (chat.directPeer === conn.peer) {
+                    matched = true;
+                    console.log('[PEER] ✓ Match! Storing under room:', chat.roomCode);
+                    if (!self.connections[chat.roomCode]) self.connections[chat.roomCode] = [];
+                    if (!self.connections[chat.roomCode].some(function(c) { return c.peer === conn.peer; })) {
+                        self.connections[chat.roomCode].push(conn);
+                    }
+                    if (self.onPeerConnected) self.onPeerConnected(conn.peer, chat.roomCode);
+                }
+            });
+            if (!matched) {
+                console.log('[PEER] ✗ No matching chat found for peer:', conn.peer);
+            }
         });
 
-        // Also listen for data even before 'open' (some browsers fire data before open)
-        conn.on('data', function(data) {
-            self.handleData(conn, data);
-        });
+        // Log if open never fires
+        setTimeout(function() {
+            if (!conn.open) {
+                console.log('[PEER] ✗ Connection from', conn.peer, 'never opened (timeout 10s)');
+            }
+        }, 10000);
     },
 
     connectToPeer: function(remotePeerId, roomCode) {
         var self = this;
         if (remotePeerId === this.myPeerId) return;
-        
-        // Clean up dead connections first
+
+        // Clean up dead connections
         if (this.connections[roomCode]) {
             this.connections[roomCode] = this.connections[roomCode].filter(function(c) { return c.open; });
         }
 
-        // Don't connect if already connected to this peer in this room
+        // Don't connect if already connected
         var existing = (this.connections[roomCode] || []).filter(function(c) { return c.peer === remotePeerId && c.open; });
         if (existing.length > 0) {
+            console.log('[PEER] Already connected to:', remotePeerId);
             return;
         }
-        
-        console.log('Attempting to connect to:', remotePeerId);
+
+        console.log('[PEER] Connecting to:', remotePeerId, 'room:', roomCode);
 
         var conn = this.peer.connect(remotePeerId, { reliable: true });
         conn.on('open', function() {
-            console.log('Connection opened to:', remotePeerId);
-            // Send join message
+            console.log('[PEER] ✓ Outgoing connection OPENED to:', remotePeerId);
+
             conn.send({
                 type: 'join',
                 roomCode: roomCode,
@@ -146,11 +160,11 @@ var PeerManager = {
                 self.handleData(conn, data);
             });
             conn.on('close', function() {
+                console.log('[PEER] Outgoing connection closed to:', remotePeerId);
                 self.removeConnection(conn);
                 if (self.onPeerDisconnected) self.onPeerDisconnected(conn.peer);
             });
 
-            // Store connection
             if (!self.connections[roomCode]) self.connections[roomCode] = [];
             self.connections[roomCode].push(conn);
 
@@ -158,14 +172,20 @@ var PeerManager = {
         });
 
         conn.on('error', function(err) {
-            console.error('Connection error to', remotePeerId, ':', err);
+            console.error('[PEER] Connection error to', remotePeerId, ':', err);
         });
+
+        // Log if open never fires
+        setTimeout(function() {
+            if (!conn.open) {
+                console.log('[PEER] ✗ Outgoing to', remotePeerId, 'never opened (timeout 10s)');
+            }
+        }, 10000);
     },
 
     handleData: function(conn, data) {
         var self = this;
         if (data.type === 'join') {
-            // Someone joined our room
             var roomCode = data.roomCode;
             if (!self.connections[roomCode]) self.connections[roomCode] = [];
             if (!self.connections[roomCode].some(function(c) { return c.peer === conn.peer; })) {
@@ -173,7 +193,6 @@ var PeerManager = {
             }
             if (self.onPeerConnected) self.onPeerConnected(data.peerId, roomCode, data.name);
 
-            // Send back acknowledgment
             conn.send({
                 type: 'joined',
                 roomCode: roomCode,
@@ -202,11 +221,14 @@ var PeerManager = {
                     conn.send(message);
                     sent = true;
                 } catch(e) {
-                    // Connection dead, remove it
+                    console.log('[PEER] Send failed, removing dead connection');
                     self.removeConnection(conn);
                 }
             }
         });
+        if (!sent) {
+            console.log('[PEER] sendMessage failed - no open connections for room:', roomCode, 'conns:', conns.length);
+        }
         return sent;
     },
 
