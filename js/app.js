@@ -2254,13 +2254,15 @@
 
             // Send delivery receipt
             if (data.msgId && data.sender !== account.peerId) {
-                PeerManager.sendMessage(data.roomCode, {
+                console.log('[MSG] Sending delivered receipt for:', data.msgId, 'to room:', data.roomCode);
+                var receiptSent = PeerManager.sendMessage(data.roomCode, {
                     type: 'receipt',
                     receiptType: 'delivered',
                     msgId: data.msgId,
                     roomCode: data.roomCode,
                     sender: account.peerId
                 });
+                console.log('[MSG] Receipt send result:', receiptSent);
             }
 
             // Auto-add chat if we don't have it

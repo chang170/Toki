@@ -34,6 +34,7 @@ var PeerManager = {
 
         this.peer.on('open', function(id) {
             console.log('[PEER] Connected to signaling server. ID:', id);
+            self.startHeartbeat();
         });
 
         this.peer.on('disconnected', function() {
@@ -213,7 +214,14 @@ var PeerManager = {
             }
             if (self.onPeerConnected) self.onPeerConnected(data.peerId, roomCode, data.name);
         } else if (data.type === 'message' || data.type === 'receipt' || data.type === 'delete' || data.type === 'invite' || data.type === 'deleteGroup' || data.type === 'hangup') {
+            console.log('[PEER] ← Received', data.type, data.receiptType || '', 'from:', conn.peer, 'msgId:', data.msgId || '');
             if (self.onMessage) self.onMessage(data);
+        } else if (data.type === 'ping') {
+            // Respond with pong
+            try { conn.send({ type: 'pong', ts: data.ts }); } catch(e) {}
+        } else if (data.type === 'pong') {
+            // Mark connection as alive
+            conn._lastPong = Date.now();
         }
     },
 
@@ -226,10 +234,13 @@ var PeerManager = {
                 try {
                     conn.send(message);
                     sent = true;
+                    console.log('[PEER] ✓ Sent', message.type, 'on conn to:', conn.peer, '| open:', conn.open, '| dataChannel:', conn.dataChannel ? conn.dataChannel.readyState : 'none');
                 } catch(e) {
-                    console.log('[PEER] Send failed, removing dead connection');
+                    console.log('[PEER] Send failed, removing dead connection:', e.message);
                     self.removeConnection(conn);
                 }
+            } else {
+                console.log('[PEER] Skipping closed conn to:', conn.peer, '| open:', conn.open);
             }
         });
         if (!sent) {
@@ -251,7 +262,51 @@ var PeerManager = {
         return conns.filter(function(c) { return c.open; }).length;
     },
 
+    // Heartbeat system - detect dead connections
+    startHeartbeat: function() {
+        var self = this;
+        this.heartbeatInterval = setInterval(function() {
+            var allConns = [];
+            for (var room in self.connections) {
+                self.connections[room].forEach(function(conn) {
+                    if (conn.open && !allConns.some(function(c) { return c.peer === conn.peer; })) {
+                        allConns.push(conn);
+                    }
+                });
+            }
+            allConns.forEach(function(conn) {
+                // Send ping
+                try {
+                    conn._lastPing = Date.now();
+                    conn.send({ type: 'ping', ts: Date.now() });
+                } catch(e) {
+                    console.log('[PEER] Ping failed, connection dead:', conn.peer);
+                    self.removeConnection(conn);
+                    if (self.onPeerDisconnected) self.onPeerDisconnected(conn.peer);
+                }
+            });
+
+            // Check for pong timeout after 5 seconds
+            setTimeout(function() {
+                allConns.forEach(function(conn) {
+                    if (conn._lastPing && !conn._lastPong) {
+                        // Never got a pong - first ping, give it a pass
+                        conn._lastPong = 0;
+                    } else if (conn._lastPing && conn._lastPong < conn._lastPing) {
+                        // Pong didn't come back - connection is dead
+                        console.log('[PEER] ✗ No pong from:', conn.peer, '- connection dead, removing');
+                        conn._dead = true;
+                        self.removeConnection(conn);
+                        try { conn.close(); } catch(e) {}
+                        if (self.onPeerDisconnected) self.onPeerDisconnected(conn.peer);
+                    }
+                });
+            }, 5000);
+        }, 15000);
+    },
+
     destroy: function() {
+        if (this.heartbeatInterval) clearInterval(this.heartbeatInterval);
         if (this.peer) this.peer.destroy();
     }
 };
