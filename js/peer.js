@@ -108,9 +108,11 @@ var PeerManager = {
                     matched = true;
                     console.log('[PEER] ✓ Match! Storing under room:', chat.roomCode);
                     if (!self.connections[chat.roomCode]) self.connections[chat.roomCode] = [];
-                    if (!self.connections[chat.roomCode].some(function(c) { return c.peer === conn.peer; })) {
-                        self.connections[chat.roomCode].push(conn);
-                    }
+                    // Remove any stale connections to this peer (replace with fresh incoming)
+                    self.connections[chat.roomCode] = self.connections[chat.roomCode].filter(function(c) {
+                        return c.peer !== conn.peer;
+                    });
+                    self.connections[chat.roomCode].push(conn);
                     if (self.onPeerConnected) self.onPeerConnected(conn.peer, chat.roomCode);
                 }
             });
@@ -166,6 +168,10 @@ var PeerManager = {
             });
 
             if (!self.connections[roomCode]) self.connections[roomCode] = [];
+            // Replace any stale connections to this peer
+            self.connections[roomCode] = self.connections[roomCode].filter(function(c) {
+                return c.peer !== remotePeerId;
+            });
             self.connections[roomCode].push(conn);
 
             if (self.onPeerConnected) self.onPeerConnected(conn.peer, roomCode);
