@@ -230,17 +230,22 @@ var PeerManager = {
         var conns = this.connections[roomCode] || [];
         var sent = false;
         conns.forEach(function(conn) {
+            if (conn._dead) return; // Skip connections marked dead
             if (conn.open) {
+                // Check actual DataChannel state
+                var dc = conn.dataChannel || (conn._dc) || null;
+                if (dc && dc.readyState !== 'open') {
+                    console.log('[PEER] DataChannel not open (state:', dc.readyState, ') - removing:', conn.peer);
+                    self.removeConnection(conn);
+                    return;
+                }
                 try {
                     conn.send(message);
                     sent = true;
-                    console.log('[PEER] ✓ Sent', message.type, 'on conn to:', conn.peer, '| open:', conn.open, '| dataChannel:', conn.dataChannel ? conn.dataChannel.readyState : 'none');
                 } catch(e) {
-                    console.log('[PEER] Send failed, removing dead connection:', e.message);
+                    console.log('[PEER] Send threw error, removing dead connection:', conn.peer, e.message);
                     self.removeConnection(conn);
                 }
-            } else {
-                console.log('[PEER] Skipping closed conn to:', conn.peer, '| open:', conn.open);
             }
         });
         if (!sent) {

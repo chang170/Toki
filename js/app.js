@@ -1271,6 +1271,31 @@
         entry.retryCount++;
         console.log('[MSG] No ack for', msgId, '- resending (attempt', entry.retryCount, ')');
 
+        // After 2 failed attempts, the connection is likely dead - kill it and re-buffer
+        if (entry.retryCount >= 2) {
+            console.log('[MSG] 2 retries failed - connection is dead. Killing and re-buffering:', msgId);
+            // Force remove all connections for this room (they're dead)
+            var conns = PeerManager.connections[entry.room] || [];
+            conns.forEach(function(conn) {
+                conn._dead = true;
+                try { conn.close(); } catch(e) {}
+            });
+            PeerManager.connections[entry.room] = [];
+
+            // Move to buffer
+            if (!messageBuffer[entry.room]) messageBuffer[entry.room] = [];
+            messageBuffer[entry.room].push(entry.msg);
+            // Update storage
+            var msgs = Storage.getMessages(entry.room);
+            for (var i = 0; i < msgs.length; i++) {
+                if (msgs[i].msgId === msgId) { msgs[i].sent = false; break; }
+            }
+            localStorage.setItem('messenger_msgs_' + entry.room, JSON.stringify(msgs));
+            if (currentRoom === entry.room) renderMessages(entry.room);
+            delete awaitingAck[msgId];
+            return;
+        }
+
         var sent = PeerManager.sendMessage(entry.room, entry.msg);
         if (sent) {
             // Wait another 10s for ack
@@ -1287,12 +1312,6 @@
             }
             localStorage.setItem('messenger_msgs_' + entry.room, JSON.stringify(msgs));
             if (currentRoom === entry.room) renderMessages(entry.room);
-            delete awaitingAck[msgId];
-        }
-
-        // Give up after 10 retries
-        if (entry.retryCount >= 10) {
-            console.log('[MSG] Giving up on:', msgId);
             delete awaitingAck[msgId];
         }
     }
