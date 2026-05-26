@@ -1210,7 +1210,8 @@
         if (e.key === 'Enter') sendMessage();
     });
 
-    var messageBuffer = {}; // roomCode -> [messages]
+    var messageBuffer = {}; // roomCode -> [messages waiting to be sent]
+    var awaitingAck = {};  // msgId -> {msg, room, retryCount, timer}
 
     function sendMessage() {
         var text = document.getElementById('messageText').value.trim();
@@ -1236,35 +1237,17 @@
             hideReplyPreview();
         }
 
-        // Check if receiver is online via DOM (online users list)
-        var receiverOnline = false;
-        var chats = Storage.getChats();
-        var chat = chats.find(function(c) { return c.roomCode === currentRoom; });
-        if (chat && chat.directPeer) {
-            var allUsers = document.querySelectorAll('.online-user');
-            allUsers.forEach(function(el) {
-                if (el.dataset.peer === chat.directPeer && !el.classList.contains('offline')) {
-                    receiverOnline = true;
-                }
-            });
-        } else {
-            receiverOnline = PeerManager.getConnectedPeers(currentRoom) > 0;
-        }
-
-        if (receiverOnline) {
+        // Try to send immediately
+        var sent = PeerManager.sendMessage(currentRoom, msg);
+        if (sent) {
             msg.sent = true;
-            // Try existing connection first
-            var sent = PeerManager.sendMessage(currentRoom, msg);
-            if (!sent && chat && chat.directPeer) {
-                // Connection dead, reconnect and send
-                msg.sent = false;
-                if (!messageBuffer[currentRoom]) messageBuffer[currentRoom] = [];
-                messageBuffer[currentRoom].push(msg);
-            }
+            // Wait for ack - if not received in 10s, resend
+            startAckTimer(msg, currentRoom);
         } else {
-            // Buffer the message
+            // Buffer - no connection available (status: 0)
             if (!messageBuffer[currentRoom]) messageBuffer[currentRoom] = [];
             messageBuffer[currentRoom].push(msg);
+            console.log('[MSG] Buffered message:', msg.msgId);
         }
 
         Storage.saveMessage(currentRoom, msg);
@@ -1273,63 +1256,105 @@
         document.getElementById('messageText').value = '';
     }
 
-    // Monitor for peer coming online and flush buffer
+    function startAckTimer(msg, room) {
+        awaitingAck[msg.msgId] = {
+            msg: msg,
+            room: room,
+            retryCount: 0,
+            timer: setTimeout(function() { retryMessage(msg.msgId); }, 10000)
+        };
+    }
+
+    function retryMessage(msgId) {
+        var entry = awaitingAck[msgId];
+        if (!entry) return;
+        entry.retryCount++;
+        console.log('[MSG] No ack for', msgId, '- resending (attempt', entry.retryCount, ')');
+
+        var sent = PeerManager.sendMessage(entry.room, entry.msg);
+        if (sent) {
+            // Wait another 10s for ack
+            entry.timer = setTimeout(function() { retryMessage(msgId); }, 10000);
+        } else {
+            // Connection lost - move back to buffer
+            console.log('[MSG] Connection lost during retry, re-buffering:', msgId);
+            if (!messageBuffer[entry.room]) messageBuffer[entry.room] = [];
+            messageBuffer[entry.room].push(entry.msg);
+            // Update storage
+            var msgs = Storage.getMessages(entry.room);
+            for (var i = 0; i < msgs.length; i++) {
+                if (msgs[i].msgId === msgId) { msgs[i].sent = false; break; }
+            }
+            localStorage.setItem('messenger_msgs_' + entry.room, JSON.stringify(msgs));
+            if (currentRoom === entry.room) renderMessages(entry.room);
+            delete awaitingAck[msgId];
+        }
+
+        // Give up after 10 retries
+        if (entry.retryCount >= 10) {
+            console.log('[MSG] Giving up on:', msgId);
+            delete awaitingAck[msgId];
+        }
+    }
+
+    function handleReceivedAck(msgId, room) {
+        // Ack received - message delivered! Status: 2 check marks
+        if (awaitingAck[msgId]) {
+            clearTimeout(awaitingAck[msgId].timer);
+            delete awaitingAck[msgId];
+        }
+        var msgs = Storage.getMessages(room);
+        for (var i = 0; i < msgs.length; i++) {
+            if (msgs[i].msgId === msgId) {
+                msgs[i].delivered = true;
+                break;
+            }
+        }
+        localStorage.setItem('messenger_msgs_' + room, JSON.stringify(msgs));
+        if (currentRoom === room) renderMessages(room);
+        console.log('[MSG] ✓ Ack received for:', msgId);
+    }
+
+    // Buffer flush - check every 10 seconds for connection
     setInterval(function() {
         for (var room in messageBuffer) {
             if (messageBuffer[room].length > 0) {
-                // Check if receiver is online via DOM
-                var chats = Storage.getChats();
-                var chat = chats.find(function(c) { return c.roomCode === room; });
-                var receiverOnline = false;
+                var connected = PeerManager.getConnectedPeers(room) > 0;
 
-                if (chat && chat.directPeer) {
-                    var allUsers = document.querySelectorAll('.online-user');
-                    allUsers.forEach(function(el) {
-                        if (el.dataset.peer === chat.directPeer && !el.classList.contains('offline')) {
-                            receiverOnline = true;
+                if (!connected) {
+                    // Try to reconnect
+                    var chats = Storage.getChats();
+                    var chat = chats.find(function(c) { return c.roomCode === room; });
+                    if (chat && chat.directPeer) {
+                        PeerManager.connectToPeer(chat.directPeer, room);
+                    }
+                    continue;
+                }
+
+                // Connection available - flush buffer
+                console.log('[MSG] Flushing buffer for room:', room, 'messages:', messageBuffer[room].length);
+                var toSend = messageBuffer[room].slice();
+                messageBuffer[room] = [];
+                toSend.forEach(function(msg) {
+                    var sent = PeerManager.sendMessage(room, msg);
+                    if (sent) {
+                        msg.sent = true;
+                        startAckTimer(msg, room);
+                        var msgs = Storage.getMessages(room);
+                        for (var i = 0; i < msgs.length; i++) {
+                            if (msgs[i].msgId === msg.msgId) { msgs[i].sent = true; break; }
                         }
-                    });
-                }
-
-                if (!receiverOnline) continue;
-
-                // Receiver is online - connect and send
-                if (chat && chat.directPeer) {
-                    (function(r, peer) {
-                        var conn = PeerManager.peer.connect(peer, { reliable: true });
-                        conn.on('open', function() {
-                            if (!PeerManager.connections[r]) PeerManager.connections[r] = [];
-                            PeerManager.connections[r].push(conn);
-
-                            conn.on('data', function(data) {
-                                PeerManager.handleData(conn, data);
-                            });
-
-                            // Flush buffer
-                            var toSend = messageBuffer[r].slice();
-                            messageBuffer[r] = [];
-                            toSend.forEach(function(msg) {
-                                msg.sent = true;
-                                conn.send(msg);
-                                var stored = Storage.getMessages(r);
-                                for (var i = 0; i < stored.length; i++) {
-                                    if (stored[i].msgId === msg.msgId) {
-                                        stored[i].sent = true;
-                                        break;
-                                    }
-                                }
-                                localStorage.setItem('messenger_msgs_' + r, JSON.stringify(stored));
-                            });
-                            if (currentRoom === r) renderMessages(r);
-                        });
-                        conn.on('error', function() {
-                            // Connection failed, will retry next cycle
-                        });
-                    })(room, chat.directPeer);
-                }
+                        localStorage.setItem('messenger_msgs_' + room, JSON.stringify(msgs));
+                    } else {
+                        // Put back in buffer
+                        if (!messageBuffer[room]) messageBuffer[room] = [];
+                        messageBuffer[room].push(msg);
+                    }
+                });
+                if (currentRoom === room) renderMessages(room);
             }
         }
-    }, 5000);
+    }, 10000);
 
     function showReplyPreview() {
         var existing = document.getElementById('replyPreview');
@@ -2354,6 +2379,8 @@
                     if (data.receiptType === 'delivered') {
                         msgs[i].receipts[data.sender].delivered = true;
                         msgs[i].delivered = true;
+                        // Clear retry timer since message was delivered
+                        handleReceivedAck(data.msgId, data.roomCode);
                     } else if (data.receiptType === 'read') {
                         msgs[i].receipts[data.sender].delivered = true;
                         msgs[i].receipts[data.sender].read = true;
