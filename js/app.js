@@ -38,7 +38,16 @@
     // Check if already logged in
     account = Storage.getAccount();
     if (account) {
-        showChatScreen();
+        // Verify account is still enabled in Firebase
+        Presence.checkEnabled(account.username, function(enabled) {
+            if (enabled === false) {
+                alert('This account has been disabled.');
+                Storage.saveAccount(null);
+                account = null;
+            } else {
+                showChatScreen();
+            }
+        });
     }
 
     // Auth handlers
@@ -52,9 +61,16 @@
         // Try local first
         var existing = Storage.getAccount();
         if (existing && existing.username === username && existing.passwordHash === CryptoUtil.hashPassword(password)) {
-            account = existing;
-            Presence.updatePeerId(username, account.peerId);
-            showChatScreen();
+            // Verify still enabled in Firebase
+            Presence.checkEnabled(username, function(enabled) {
+                if (enabled === false) {
+                    alert('This account has been disabled.');
+                    return;
+                }
+                account = existing;
+                Presence.updatePeerId(username, account.peerId);
+                showChatScreen();
+            });
             return;
         }
 

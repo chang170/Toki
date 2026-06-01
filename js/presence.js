@@ -185,6 +185,26 @@ var Presence = {
         return false;
     },
 
+    // Check if account is enabled in Firebase
+    checkEnabled: function(username, callback) {
+        var key = username.toLowerCase().replace(/[^a-z0-9]/g, '_');
+        var xhr = new XMLHttpRequest();
+        xhr.open('GET', this.dbUrl + '/accounts/' + key + '.json', true);
+        xhr.onload = function() {
+            if (xhr.status === 200 && xhr.responseText !== 'null') {
+                var data = JSON.parse(xhr.responseText);
+                // If enabled field doesn't exist, treat as enabled
+                callback(data.enabled !== false);
+            } else {
+                callback(true); // Can't reach Firebase, allow login
+            }
+        };
+        xhr.onerror = function() {
+            callback(true); // Network error, allow login
+        };
+        xhr.send();
+    },
+
     // Check for pending invites
     checkInvites: function(myPeerId, callback) {
         var self = this;
