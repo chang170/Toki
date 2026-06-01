@@ -19,16 +19,29 @@ var PeerManager = {
 
         console.log('[PEER] Initializing with ID:', peerId);
 
+        // Fetch TURN credentials from Metered
+        fetch('https://toki-messenger.metered.live/api/v1/turn/credentials?apiKey=98fcbf11f4e2c051cf8d85771e5114a9dde6')
+            .then(function(resp) { return resp.json(); })
+            .then(function(iceServers) {
+                console.log('[PEER] Got TURN credentials:', iceServers.length, 'servers');
+                self._initPeer(peerId, iceServers);
+            })
+            .catch(function(err) {
+                console.error('[PEER] Failed to get TURN credentials, using fallback:', err);
+                self._initPeer(peerId, [
+                    { urls: 'stun:stun.l.google.com:19302' },
+                    { urls: 'stun:stun1.l.google.com:19302' }
+                ]);
+            });
+    },
+
+    _initPeer: function(peerId, iceServers) {
+        var self = this;
+
         this.peer = new Peer(peerId, {
             debug: 0,
             config: {
-                iceServers: [
-                    { urls: 'stun:stun.l.google.com:19302' },
-                    { urls: 'stun:stun1.l.google.com:19302' },
-                    { urls: 'turn:openrelay.metered.ca:80', username: 'openrelayproject', credential: 'openrelayproject' },
-                    { urls: 'turn:openrelay.metered.ca:443', username: 'openrelayproject', credential: 'openrelayproject' },
-                    { urls: 'turn:openrelay.metered.ca:443?transport=tcp', username: 'openrelayproject', credential: 'openrelayproject' }
-                ]
+                iceServers: iceServers
             }
         });
 
