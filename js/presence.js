@@ -116,7 +116,7 @@ var Presence = {
                 callback(false, 'exists');
                 return;
             }
-            var data = JSON.stringify({ username: username, passwordHash: passwordHash, peerId: peerId, created: Date.now() });
+            var data = JSON.stringify({ username: username, passwordHash: passwordHash, peerId: peerId, created: Date.now(), enabled: true });
             var xhr2 = new XMLHttpRequest();
             xhr2.open('PUT', self.dbUrl + '/accounts/' + key + '.json', true);
             xhr2.setRequestHeader('Content-Type', 'application/json');
@@ -134,6 +134,11 @@ var Presence = {
         xhr.onload = function() {
             if (xhr.status === 200 && xhr.responseText !== 'null') {
                 var data = JSON.parse(xhr.responseText);
+                // Check if account is disabled
+                if (data.enabled === false) {
+                    callback(false, 'disabled');
+                    return;
+                }
                 if (data.passwordHash === CryptoUtil.hashPassword(password)) {
                     callback(data);
                 } else {

@@ -59,7 +59,11 @@
         }
 
         // Try Firebase
-        Presence.loginAccount(username, password, function(fbAccount) {
+        Presence.loginAccount(username, password, function(fbAccount, reason) {
+            if (reason === 'disabled') {
+                alert('This account has been disabled.');
+                return;
+            }
             if (fbAccount) {
                 account = {
                     username: fbAccount.username,
