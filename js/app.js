@@ -2079,11 +2079,14 @@
     }
 
     // Handle incoming calls via PeerManager callback
+    var pendingCallType = 'video'; // default, updated by callSignal
+
     PeerManager.onIncomingCall = function(call) {
         var callerName = call.peer;
+        var isVideo = pendingCallType === 'video';
         document.getElementById('incomingCall').hidden = false;
         document.getElementById('incomingCaller').textContent = callerName;
-        document.getElementById('incomingType').textContent = 'Incoming call...';
+        document.getElementById('incomingType').textContent = isVideo ? 'Incoming video call...' : 'Incoming voice call...';
 
         // Auto-log as missed (will update if answered)
         var missedIdx = callLog.length;
@@ -2096,12 +2099,17 @@
             callStartTime = Date.now();
             localStorage.setItem('toki_calllog', JSON.stringify(callLog));
 
-            var constraints = { audio: true, video: true };
+            var constraints = { audio: true, video: isVideo };
             navigator.mediaDevices.getUserMedia(constraints).then(function(stream) {
                 localStream = stream;
                 document.getElementById('localVideo').srcObject = stream;
                 document.getElementById('callScreen').classList.add('active');
                 document.getElementById('callInfo').textContent = 'Connected';
+
+                if (!isVideo) {
+                    document.getElementById('localVideo').style.display = 'none';
+                    document.getElementById('remoteVideo').style.display = 'none';
+                }
 
                 call.answer(stream);
                 currentCall = call;
@@ -2237,6 +2245,12 @@
     // Unread message tracking
 
     function handleIncomingMessage(data) {
+        // Handle call signal to set call type before PeerJS call event fires
+        if (data.type === 'callSignal') {
+            pendingCallType = data.callType || 'video';
+            return;
+        }
+
         if (data.type === 'message' && data.roomCode) {
             // Only process if it has content
             if (!data.sender || (!data.text && !data.media && !data.location && !data.animation)) return;
