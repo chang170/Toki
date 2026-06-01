@@ -226,7 +226,7 @@ var PeerManager = {
                 self.connections[roomCode].push(conn);
             }
             if (self.onPeerConnected) self.onPeerConnected(data.peerId, roomCode, data.name);
-        } else if (data.type === 'message' || data.type === 'receipt' || data.type === 'delete' || data.type === 'invite' || data.type === 'deleteGroup' || data.type === 'hangup') {
+        } else if (data.type === 'message' || data.type === 'receipt' || data.type === 'delete' || data.type === 'invite' || data.type === 'deleteGroup' || data.type === 'hangup' || data.type === 'callSignal') {
             console.log('[PEER] ← Received', data.type, data.receiptType || '', 'from:', conn.peer, 'msgId:', data.msgId || '');
             if (self.onMessage) self.onMessage(data);
         } else if (data.type === 'ping') {
